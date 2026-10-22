@@ -1,0 +1,41 @@
+name: Daily MyClash + Claude routes
+on:
+  schedule:
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tools/claude-route.cjs'
+      - 'tools/sync-upstream.cjs'
+      - 'tools/test-claude.cjs'
+      - 'claude-route.json'
+      - '.github/workflows/sync-myclash.yml'
+permissions:
+  contents: write
+concurrency:
+  group: myclash-claude
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tools/sync-upstream.cjs
+      - run: |
+          node --check Script/mihomoScript.js
+          node --check Script/Script.js
+          node tools/test-claude.cjs
+      - name: Commit verified scripts
+        run: |
+          git diff --check
+          git add Script/mihomoScript.js Script/Script.js
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m "chore: sync MyClash upstream with Claude routes"
+            git push origin HEAD:main
+          fi
