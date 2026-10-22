@@ -32,8 +32,7 @@ const available=Boolean(pinnedNode&&names.includes(pinnedNode));
 config['proxy-groups'].push({
 name:groupName,type:'select',
 proxies:pinnedNode?(available?[pinnedNode,'REJECT']:['REJECT']):['REJECT',...names],
-'default-selected':available?pinnedNode:'REJECT',
-'empty-fallback':'REJECT'
+'default-selected':available?pinnedNode:'REJECT'
 });
 config['rules']=[...BLOCK,...ROUTE,...config['rules']];
 }
