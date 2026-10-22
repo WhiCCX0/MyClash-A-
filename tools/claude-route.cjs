@@ -29,11 +29,16 @@ const names=[...new Set(config['proxies'].filter(p=>p&&typeof p.name==='string'&
 !['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase())).map(p=>p.name))];
 if(config['proxy-groups'].some(g=>g.name===groupName)||names.includes(groupName))throw Error('Claude group name collision');
 const available=Boolean(pinnedNode&&names.includes(pinnedNode));
-config['proxy-groups'].push({
+const groups=config['proxy-groups'];
+const defaultIndex=groups.findIndex(g=>g.name==='默认代理');
+const insertAt=defaultIndex<0?0:defaultIndex+1;
+groups.splice(insertAt,0,{
 name:groupName,type:'select',
 proxies:pinnedNode?(available?[pinnedNode,'REJECT']:['REJECT']):['REJECT',...names],
 'default-selected':available?pinnedNode:'REJECT'
 });
+const global=groups.find(g=>g.name==='GLOBAL');
+if(global&&Array.isArray(global.proxies)&&!global.proxies.includes(groupName))global.proxies.push(groupName);
 config['rules']=[...BLOCK,...ROUTE,...config['rules']];
 }
 function patch(source,pinnedNode=''){
