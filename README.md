@@ -34,6 +34,13 @@
 
 若要在构建时强制绑定一个具体节点，可编辑 [`claude-route.json`](./claude-route.json) 的 `node_name`（填写**MyClash 标准化后的完整节点名称**）；该节点不再存在时，构建出的组仅保留 `REJECT`，不会回退直连。留空表示在 Bettbox 内手动选择。
 
+### Bettbox 中看不到 `Claude固定出口`？
+
+1. **机场订阅与脚本覆写是不同入口**：请先正常导入机场节点订阅，再到 Bettbox 的脚本覆写页面绑定本 Fork 的全量或精简 **JS Raw 地址**；不要将 JS 当成机场订阅 YAML 导入。
+2. 更新或重新下载脚本覆写，保存并确认它确实对**当前选中的机场订阅**启用；再刷新订阅并重新加载 Mihomo 配置。
+3. 本 Fork 的 `Claude固定出口` 现在紧跟在 `默认代理` 之后，同时列入 `GLOBAL` 可选组。出现后须手动选择具体节点；初始为 `REJECT`。
+4. 仍未出现时，请检查 Bettbox 的脚本执行错误和内核配置加载日志：如果报错或仍引用 `AIsouler/MyClash` 的原版地址，说明新版覆写尚未生效。分享截图前遮挡私人订阅 URL 和节点凭据。
+
 ### 上游同步与维护
 
 - 自动工作流：[Daily MyClash + Claude routes](./.github/workflows/sync-myclash.yml)，支持手动 `Run workflow`；GitHub 定时任务可能延迟。
