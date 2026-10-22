@@ -1,5 +1,52 @@
 # MyClash
 
+> [!NOTE]
+> 本仓库 **WhiCCX0/MyClash-A-** 基于 [AIsouler/MyClash](https://github.com/AIsouler/MyClash) 维护。以下先说明本 Fork 新增的 Claude 路由和自动更新功能；文档后半部分保留上游 MyClash 的原始使用说明。
+
+## 本 Fork 的修改说明
+
+**目标：** 在尽量保留 MyClash 原有 DNS、TUN、节点归类和其他分流的前提下，增加 Claude 相关连接的指定出口与部分遥测域名阻断，并自动跟进上游全量版、精简版 JS 脚本。
+
+| 修改项目 | 本 Fork 行为 |
+| --- | --- |
+| Claude / Anthropic API 及部分登录、内容域名 | 进入独立的 **Claude固定出口** 策略组 |
+| Sift（\`siftscience.com\`、\`sift.com\`）和 GrowthBook（\`growthbook.io\`） | 与 Claude 采用同一策略组 |
+| Sentry（\`sentry.io\`） | \`REJECT\` |
+| Datadog（\`datadoghq.com\`、\`datadoghq.eu\` 及含 \`datadoghq\` 的域名） | \`REJECT\` |
+| 节点选择 | 首次默认 \`REJECT\`；须在 Bettbox 内手动选择**具体机场节点**，不使用地区自动组或负载均衡 |
+| 每日自动同步 | GitHub Actions 每天 **03:23 UTC（北京时间 11:23）** 检查上游，基于同一上游提交重建全量版与精简版 |
+| 构建失败 | 不发布新脚本，保留上次成功版本 |
+| 其他 MyClash 功能 | 保留上游 JS 的主要实现和 Bettbox 开关；仅在生成的最终配置中叠加 Claude 规则 |
+
+> [!IMPORTANT]
+> - **Sentry 和 Datadog 为全局域名阻断规则**，会影响其他使用相同域名的软件，不仅限 Claude。
+> - 阻断部分遥测不能保证不出现直连；请在 Bettbox 检查 TUN 实际状态和连接日志。固定节点名称也**不等于固定公网 IP**。
+> - 本配置用于统一已接管流量的路由、减少指定域名的上报，**不能保证避免 Claude 账号封禁**。账号资格与使用地区仍需符合服务商政策。
+
+### 本 Fork 覆写脚本（Bettbox）
+
+| 版本 | 文件 | Raw 链接 |
+| --- | --- | --- |
+| **全量版（推荐）** | [\`Script/mihomoScript.js\`](./Script/mihomoScript.js) | [复制/打开全量版](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js) |
+| **精简版** | [\`Script/Script.js\`](./Script/Script.js) | [复制/打开精简版](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js) |
+
+**使用步骤：** 在 Bettbox 中复制原配置用于测试 → 将其中一条 Raw 链接作为**唯一**覆写脚本 → 应用配置 → 在 \`Claude固定出口\` 组手动选择一个真实节点 → 检查连接日志。不要同时启用上游 MyClash 或 one-exit 作为第二份覆写。
+
+若要在构建时强制绑定一个具体节点，可编辑 [\`claude-route.json\`](./claude-route.json) 的 \`node_name\`（填写**MyClash 标准化后的完整节点名称**）；该节点不再存在时，构建出的组仅保留 \`REJECT\`，不会回退直连。留空表示在 Bettbox 内手动选择。
+
+### 上游同步与维护
+
+- 自动工作流：[Daily MyClash + Claude routes](./.github/workflows/sync-myclash.yml)，支持手动 \`Run workflow\`；GitHub 定时任务可能延迟。
+- 生成器：[\`tools/sync-upstream.cjs\`](./tools/sync-upstream.cjs)；Claude 补丁：[\`tools/claude-route.cjs\`](./tools/claude-route.cjs)；验证：[\`tools/test-claude.cjs\`](./tools/test-claude.cjs)。
+- **只自动更新两份 JS 覆写脚本**；下方上游 README 提及的 YAML 配置文件不包含此 Fork 的 Claude 补丁。
+- 更多说明见 [\`Claude-README.md\`](./Claude-README.md)。
+
+---
+
+<details>
+<summary>原版 MyClash 说明（以下内容由上游保留；其 Raw 链接指向原版，不含本 Fork 修改）</summary>
+
+
 基于 [Mihomo](https://github.com/MetaCubeX/mihomo/tree/Alpha) 的**覆写脚本与配置文件**，仅适用于 mihomo 内核的代理客户端
 
 > [!IMPORTANT]
@@ -133,3 +180,5 @@ https://raw.githubusercontent.com/AIsouler/MyClash/main/Config/mihomoConfigLite.
 - [appshubcc/bett-rules](https://github.com/appshubcc/bett-rules)
 - [Koolson/Qure](https://github.com/Koolson/Qure)
 - [jsdmirror/JSDMirror](https://github.com/jsdmirror/JSDMirror)
+
+</details>
