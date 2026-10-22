@@ -320,7 +320,6 @@ const groupBaseOption = {
   url: 'https://www.apple.com/library/test/success.html',
   lazy: true,
   'max-failed-times': 3,
-  'empty-fallback': 'REJECT',
 };
 
 // select策略组通用配置
@@ -1817,7 +1816,6 @@ function addClaudeRoute(config, pinnedNode) {
     type: 'select',
     proxies: pinnedNode ? (available ? [pinnedNode, 'REJECT'] : ['REJECT']) : ['REJECT', ...names],
     'default-selected': available ? pinnedNode : 'REJECT',
-    'empty-fallback': 'REJECT',
   });
   config['rules'] = [...BLOCK, ...ROUTE, ...config['rules']];
 }
