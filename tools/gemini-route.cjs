@@ -106,7 +106,9 @@ function addGeminiRoute(config, cfg) {
   groups.splice(insertion, 0, entry, ...selections);
   const global = groups.find(g => g.name === 'GLOBAL');
   if (!global || !Array.isArray(global.proxies)) throw Error('Missing GLOBAL group');
-  if (!global.proxies.includes(groupName)) global.proxies.push(groupName);
+  for (const name of [groupName, ...selections.map(g => g.name)]) {
+    if (!global.proxies.includes(name)) global.proxies.push(name);
+  }
 
   // Preserve the entire Claude block: insert immediately after its last ROUTE entry.
   if (typeof ROUTE === 'undefined' || !Array.isArray(ROUTE) || !ROUTE.length) {
