@@ -55,7 +55,7 @@ function addGeminiRoute(config, cfg) {
   }
   if (!names.has('默认代理')) throw Error('Missing 默认代理 group');
   // Reuse existing upstream groups unchanged; omit absent/lite-mode groups.
-  const sharedOrder = ['美国', '日本', '新加坡', '台湾', '其他节点'];
+  const sharedOrder = ['手动选择', '美国', '日本', '新加坡', '台湾', '其他节点'];
   const sharedGroups = sharedOrder.filter(name => {
     const group = groups.find(g => g.name === name);
     return group && Array.isArray(group.proxies) && group.proxies.length > 0;
