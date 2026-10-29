@@ -53,7 +53,7 @@
 
 ### Gemini Web 路由（P0）
 
-新增 **Gemini Web**（`select`，默认选择 `默认代理`）和最多五个独立的 Gemini 地区手动组：`Gemini 美国`、`Gemini 日本`、`Gemini 新加坡`、`Gemini 香港`、`Gemini 台湾`。各地区只使用上游 MyClash 已归类的真实节点，空地区不生成；与原有地区组和 Google、AI、Claude 组相互独立。`GLOBAL` 仅追加 `Gemini Web`。不新增监听端口、`fallback`、`url-test`、`load-balance` 或 `hash-key`。
+新增 **Gemini Web**（`select`，默认选择 `默认代理`）和最多五个独立的 Gemini 地区手动组：`Gemini 美国`、`Gemini 日本`、`Gemini 新加坡`、`Gemini 香港`、`Gemini 台湾`。各地区只使用上游 MyClash 已归类的真实节点，空地区不生成；与原有地区组和 Google、AI、Claude 组相互独立。`GLOBAL` 追加 `Gemini Web` 和实际生成的 Gemini 地区组，已存在的成员不重复添加。不新增监听端口、`fallback`、`url-test`、`load-balance` 或 `hash-key`。
 
 **固定出口：** `默认代理` 只是初始选项，可能跟随其他自动组变化，**不保证固定出口**。如需固定节点，应在 `Gemini Web` 中选一个 `Gemini <地区>`，再在该地区组里选择具体节点；固定节点名也不保证公网 IP 永不变化。
 
