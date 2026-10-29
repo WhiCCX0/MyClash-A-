@@ -1777,7 +1777,7 @@ function main(config) {
   ];
 
   // BEGIN MyClash-A- Claude routing (generated)
-  addClaudeRoute(newConfig, "", ANTHROPIC_RULES);
+  addClaudeRoute(newConfig, '', ANTHROPIC_RULES);
   // END MyClash-A- Claude routing
   // BEGIN MyClash-A- Gemini routing (generated)
   addGeminiRoute(newConfig, GEMINI_CONFIG);
@@ -1786,84 +1786,159 @@ function main(config) {
 }
 
 // Shared add-on: upstream MyClash code is otherwise unchanged.
-const PROVIDER="myclash_claude_anthropic";
-const PROVIDER_URL="https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs";
-const ANTHROPIC_RULES=["DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口","DOMAIN-SUFFIX,ant.dev,Claude固定出口","DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,anthropic.team,Claude固定出口","DOMAIN-SUFFIX,antspace.dev,Claude固定出口","DOMAIN-SUFFIX,chatbotclaude.com,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.app,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,claude.new,Claude固定出口","DOMAIN-SUFFIX,claude.site,Claude固定出口","DOMAIN-SUFFIX,claudeacademy.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpclient.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN-SUFFIX,claudepages.dev,Claude固定出口","DOMAIN-SUFFIX,claudestudio.com,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口"];
-const BLOCK=["DOMAIN-SUFFIX,sentry.io,REJECT","DOMAIN-SUFFIX,datadoghq.com,REJECT","DOMAIN-SUFFIX,datadoghq.eu,REJECT","DOMAIN-KEYWORD,datadoghq,REJECT"];
-const ROUTE=["DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN,anthropic.auth0.com,Claude固定出口","DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口","DOMAIN,anthropic-com.ghost.io,Claude固定出口","DOMAIN-SUFFIX,siftscience.com,Claude固定出口","DOMAIN-SUFFIX,sift.com,Claude固定出口","DOMAIN-SUFFIX,growthbook.io,Claude固定出口","IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve","IP-ASN,399358,Claude固定出口,no-resolve","PROCESS-NAME,claude.exe,Claude固定出口"];
-function addClaudeRoute(config,pinnedNode,anthropicRules){
-if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
-!anthropicRules.every(r=>typeof r==='string'&&r.endsWith(',Claude固定出口')))
-throw Error('Missing generated Anthropic domain rules');
-if(!config['rule-providers']||config['rule-providers'][PROVIDER])throw Error('Anthropic provider collision or missing providers');
-config['rule-providers'][PROVIDER]={
-type:'http',format:'mrs',behavior:'domain',interval:86400,
-url:PROVIDER_URL,path:'./ruleset/myclash_claude_anthropic.mrs',
-'path-in-bundle':'geo/geosite/anthropic.mrs'
-};
+const PROVIDER = 'myclash_claude_anthropic';
+const PROVIDER_URL = 'https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs';
+const ANTHROPIC_RULES = [
+  'DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口',
+  'DOMAIN-SUFFIX,ant.dev,Claude固定出口',
+  'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
+  'DOMAIN-SUFFIX,anthropic.team,Claude固定出口',
+  'DOMAIN-SUFFIX,antspace.dev,Claude固定出口',
+  'DOMAIN-SUFFIX,chatbotclaude.com,Claude固定出口',
+  'DOMAIN-SUFFIX,clau.de,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.app,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.dev,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.new,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.site,Claude固定出口',
+  'DOMAIN-SUFFIX,claudeacademy.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claudemcpclient.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claudepages.dev,Claude固定出口',
+  'DOMAIN-SUFFIX,claudestudio.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口',
+];
+const BLOCK = [
+  'DOMAIN-SUFFIX,sentry.io,REJECT',
+  'DOMAIN-SUFFIX,datadoghq.com,REJECT',
+  'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
+  'DOMAIN-KEYWORD,datadoghq,REJECT',
+];
+const ROUTE = [
+  'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.dev,Claude固定出口',
+  'DOMAIN-SUFFIX,clau.de,Claude固定出口',
+  'DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
+  'DOMAIN,anthropic.auth0.com,Claude固定出口',
+  'DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口',
+  'DOMAIN,anthropic-com.ghost.io,Claude固定出口',
+  'DOMAIN-SUFFIX,siftscience.com,Claude固定出口',
+  'DOMAIN-SUFFIX,sift.com,Claude固定出口',
+  'DOMAIN-SUFFIX,growthbook.io,Claude固定出口',
+  'IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve',
+  'IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve',
+  'IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve',
+  'IP-ASN,399358,Claude固定出口,no-resolve',
+  'PROCESS-NAME,claude.exe,Claude固定出口',
+];
+function addClaudeRoute(config, pinnedNode, anthropicRules) {
+  if (
+    !Array.isArray(anthropicRules) ||
+    anthropicRules.length < 15 ||
+    !anthropicRules.every((r) => typeof r === 'string' && r.endsWith(',Claude固定出口'))
+  )
+    throw Error('Missing generated Anthropic domain rules');
+  if (!config['rule-providers'] || config['rule-providers'][PROVIDER])
+    throw Error('Anthropic provider collision or missing providers');
+  config['rule-providers'][PROVIDER] = {
+    type: 'http',
+    format: 'mrs',
+    behavior: 'domain',
+    interval: 86400,
+    url: PROVIDER_URL,
+    path: './ruleset/myclash_claude_anthropic.mrs',
+    'path-in-bundle': 'geo/geosite/anthropic.mrs',
+  };
 
-const groupName='Claude固定出口';
-const groups=config['proxy-groups'];
-const names=new Set(config.proxies.filter(p=>p&&typeof p.name==='string'&&
-!['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase()))
-.map(p=>p.name));
-if(groups.some(g=>g.name===groupName)||names.has(groupName))throw Error('Claude group name collision');
+  const groupName = 'Claude固定出口';
+  const groups = config['proxy-groups'];
+  const names = new Set(
+    config.proxies
+      .filter(
+        (p) =>
+          p &&
+          typeof p.name === 'string' &&
+          !['direct', 'reject', 'reject-drop', 'pass', 'compatible'].includes(String(p.type).toLowerCase()),
+      )
+      .map((p) => p.name),
+  );
+  if (groups.some((g) => g.name === groupName) || names.has(groupName)) throw Error('Claude group name collision');
 
-// Match the Taiwanese region using upstream's own classification rules.
-// Unlike a name-only filter, this is consistent with normalized custom proxies.
-const taiwanNodes=[...names].filter(name=>
-  getMatchedRegions(name).some(region=>region.name==='台湾'));
-const taiwanSet=new Set(taiwanNodes);
-const taiwanGroups=['台湾','台湾-自动选择'].filter(name=>
-  groups.some(g=>g.name===name) && taiwanNodes.length>0);
-const available=Boolean(pinnedNode&&taiwanSet.has(pinnedNode));
-const choices=pinnedNode
-  ? (available?[pinnedNode,'REJECT']:['REJECT'])
-  : ['REJECT',...taiwanNodes,...taiwanGroups];
-const defaultIndex=groups.findIndex(g=>g.name==='默认代理');
-const insertAt=defaultIndex<0?0:defaultIndex+1;
-groups.splice(insertAt,0,{
-name:groupName,type:'select',
-proxies:choices,
-'default-selected':available?pinnedNode:'REJECT'
-});
-const global=groups.find(g=>g.name==='GLOBAL');
-if(global&&Array.isArray(global.proxies)&&!global.proxies.includes(groupName))global.proxies.push(groupName);
-config['rules']=[...BLOCK,...anthropicRules,
-'RULE-SET,'+PROVIDER+',Claude固定出口',
-...ROUTE,...config['rules']];
+  // Match the Taiwanese region using upstream's own classification rules.
+  // Unlike a name-only filter, this is consistent with normalized custom proxies.
+  const taiwanNodes = [...names].filter((name) => getMatchedRegions(name).some((region) => region.name === '台湾'));
+  const taiwanSet = new Set(taiwanNodes);
+  const taiwanGroups = ['台湾', '台湾-自动选择'].filter(
+    (name) => groups.some((g) => g.name === name) && taiwanNodes.length > 0,
+  );
+  const available = Boolean(pinnedNode && taiwanSet.has(pinnedNode));
+  const choices = pinnedNode
+    ? available
+      ? [pinnedNode, 'REJECT']
+      : ['REJECT']
+    : ['REJECT', ...taiwanNodes, ...taiwanGroups];
+  const defaultIndex = groups.findIndex((g) => g.name === '默认代理');
+  const insertAt = defaultIndex < 0 ? 0 : defaultIndex + 1;
+  groups.splice(insertAt, 0, {
+    name: groupName,
+    type: 'select',
+    proxies: choices,
+    'default-selected': available ? pinnedNode : 'REJECT',
+  });
+  const global = groups.find((g) => g.name === 'GLOBAL');
+  if (global && Array.isArray(global.proxies) && !global.proxies.includes(groupName)) global.proxies.push(groupName);
+  config['rules'] = [
+    ...BLOCK,
+    ...anthropicRules,
+    'RULE-SET,' + PROVIDER + ',Claude固定出口',
+    ...ROUTE,
+    ...config['rules'],
+  ];
 }
 
 // Gemini Web P0 add-on (generated)
-const GEMINI_CONFIG={"in_users":["gemini-01","aistudio-01"],"process_path_regex":"\\\\(gemini-web2api-go|aistudio2api)\\.exe$"};
+const GEMINI_CONFIG = {
+  in_users: ['gemini-01', 'aistudio-01'],
+  process_path_regex: '\\\\(gemini-web2api-go|aistudio2api)\\.exe$',
+};
 function addGeminiRoute(config, cfg) {
-  if (typeof getMatchedRegions !== 'function' ||
-      typeof regionDefinitions === 'undefined' || !Array.isArray(regionDefinitions) ||
-      typeof selectBaseOption === 'undefined' || !selectBaseOption ||
-      typeof selectBaseOption !== 'object' ||
-      typeof iconBaseUrl !== 'string') {
+  if (
+    typeof getMatchedRegions !== 'function' ||
+    typeof regionDefinitions === 'undefined' ||
+    !Array.isArray(regionDefinitions) ||
+    typeof selectBaseOption === 'undefined' ||
+    !selectBaseOption ||
+    typeof selectBaseOption !== 'object' ||
+    typeof iconBaseUrl !== 'string'
+  ) {
     throw Error('Gemini route requires upstream region helpers and selectBaseOption');
   }
-  if (!config || !Array.isArray(config.proxies) ||
-      !Array.isArray(config['proxy-groups']) || !Array.isArray(config.rules)) {
+  if (
+    !config ||
+    !Array.isArray(config.proxies) ||
+    !Array.isArray(config['proxy-groups']) ||
+    !Array.isArray(config.rules)
+  ) {
     throw Error('Missing MyClash Gemini input arrays');
   }
-  if (!Array.isArray(cfg.in_users) || !cfg.in_users.length ||
-      typeof cfg.process_path_regex !== 'string') {
+  if (!Array.isArray(cfg.in_users) || !cfg.in_users.length || typeof cfg.process_path_regex !== 'string') {
     throw Error('Missing validated GEMINI_CONFIG');
   }
   const order = ['美国', '日本', '新加坡', '香港', '台湾'];
   const groups = config['proxy-groups'];
-  const names = new Set(groups.map(g => g.name));
-  const existingProxies = new Set(config.proxies.map(p => p.name));
-  const definitions = new Map(regionDefinitions.map(r => [r.name, r]));
-  const byRegion = new Map(order.map(name => [name, []]));
-  const seen = new Map(order.map(name => [name, new Set()]));
+  const names = new Set(groups.map((g) => g.name));
+  const existingProxies = new Set(config.proxies.map((p) => p.name));
+  const definitions = new Map(regionDefinitions.map((r) => [r.name, r]));
+  const byRegion = new Map(order.map((name) => [name, []]));
+  const seen = new Map(order.map((name) => [name, new Set()]));
   const excluded = new Set(['direct', 'reject', 'reject-drop', 'pass', 'compatible']);
 
   for (const proxy of config.proxies) {
-    if (!proxy || typeof proxy.name !== 'string' ||
-        excluded.has(String(proxy.type).toLowerCase())) continue;
+    if (!proxy || typeof proxy.name !== 'string' || excluded.has(String(proxy.type).toLowerCase())) continue;
     const matched = getMatchedRegions(proxy.name);
     if (!Array.isArray(matched)) throw Error('Unexpected region match result');
     for (const region of matched) {
@@ -1900,17 +1975,17 @@ function addGeminiRoute(config, cfg) {
   const entry = {
     ...selectBaseOption,
     name: groupName,
-    proxies: ['默认代理', ...selections.map(g => g.name)],
+    proxies: ['默认代理', ...selections.map((g) => g.name)],
     icon: iconBaseUrl + 'Google.svg',
     hidden: false,
   };
-  const claudeIdx = groups.findIndex(g => g.name === 'Claude固定出口');
-  const defaultIdx = groups.findIndex(g => g.name === '默认代理');
+  const claudeIdx = groups.findIndex((g) => g.name === 'Claude固定出口');
+  const defaultIdx = groups.findIndex((g) => g.name === '默认代理');
   const insertion = (claudeIdx >= 0 ? claudeIdx : defaultIdx) + 1;
   groups.splice(insertion, 0, entry, ...selections);
-  const global = groups.find(g => g.name === 'GLOBAL');
+  const global = groups.find((g) => g.name === 'GLOBAL');
   if (!global || !Array.isArray(global.proxies)) throw Error('Missing GLOBAL group');
-  for (const name of [groupName, ...selections.map(g => g.name)]) {
+  for (const name of [groupName, ...selections.map((g) => g.name)]) {
     if (!global.proxies.includes(name)) global.proxies.push(name);
   }
 
