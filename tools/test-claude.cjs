@@ -12,6 +12,22 @@ assert.ok(!g.proxies.includes('自动选择'));
 assert.equal(cfg.rules[0],'DOMAIN-SUFFIX,sentry.io,REJECT');
 assert.equal(cfg.rules[3],'DOMAIN-KEYWORD,datadoghq,REJECT');
 assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
+// Shared third-party domains must not be globally hijacked.
+const aiAt=cfg.rules.indexOf('RULE-SET,ai,AI');
+for (const rule of [
+ 'DOMAIN,anthropic-com.ghost.io,Claude固定出口',
+ 'PROCESS-NAME,claude.exe,Claude固定出口'
+]) {
+ const at=cfg.rules.indexOf(rule);
+ assert.ok(at>=0 && (aiAt<0 || at<aiAt),file+': absent/late '+rule);
+}
+for (const shared of ['storage.googleapis.com','raw.githubusercontent.com','challenges.cloudflare.com','statsigapi.net','intercom.io']) {
+ assert.ok(!cfg.rules.some(rule => rule.includes(','+shared+',Claude固定出口')),
+   file+': overbroad shared-domain rule for '+shared);
+}
+assert.ok(cfg.rules.indexOf('DOMAIN-KEYWORD,datadoghq,REJECT') <
+ cfg.rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口'));
+
 const required = [
  'ant.dev','anthropic.com','anthropic.team','antspace.dev',
  'chatbotclaude.com','clau.de','claude.ai','claude.app','claude.com',
