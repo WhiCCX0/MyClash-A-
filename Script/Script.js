@@ -33,6 +33,7 @@ const ruleOptionsEnable = {
   生成地区自动选择组: true, // 是否生成地区自动选择策略组
   隐藏地区手动选择组: false, // 是否隐藏地区手动选择策略组
   生成倍率组: true, // 是否生成低倍率/高倍率策略组
+  生成家宽节点组: true, // 是否生成家宽（住宅/原生 IP）节点策略组
   分流组添加所有节点: false, // 是否为分流策略组添加所有节点
   过滤低倍率节点: false, // 是否过滤低倍率节点
   过滤高倍率节点: false, // 是否过滤高倍率节点
@@ -180,8 +181,19 @@ const rateRegionDefinitions = [
   },
 ];
 
-// 全部策略组定义（地区 + 倍率），统一用于节点匹配与归类
-const allRegionDefinitions = [...regionDefinitions, ...rateRegionDefinitions];
+// 定义家宽（住宅/原生 IP）节点策略组
+const homeRegionName = '家宽节点';
+
+const homeRegionDefinitions = [
+  {
+    name: homeRegionName,
+    regex: /家宽|住宅|原生\s*IP|家庭宽带|\bISP\b|\bRES\b|residential/i,
+    icon: `${iconBaseUrl}Home.svg`,
+  },
+];
+
+// 全部策略组定义（地区 + 倍率 + 家宽），统一用于节点匹配与归类
+const allRegionDefinitions = [...regionDefinitions, ...rateRegionDefinitions, ...homeRegionDefinitions];
 
 // Rule Providers 通用配置
 const ruleProviderCommonDomain = {
@@ -626,6 +638,7 @@ function createRegionGroup(name, icon, proxies) {
  */
 function buildRegionGroups(filteredProxies, customProxies) {
   const generateRateGroupEnabled = ruleOptionsEnable.生成倍率组;
+  const generateHomeGroupEnabled = ruleOptionsEnable.生成家宽节点组;
 
   const regionGroups = Object.fromEntries(allRegionDefinitions.map(({ name }) => [name, []]));
   const otherProxies = [];
@@ -644,7 +657,12 @@ function buildRegionGroups(filteredProxies, customProxies) {
   }
 
   const generatedRegionGroups = allRegionDefinitions
-    .filter((r) => regionGroups[r.name].length > 0 && (generateRateGroupEnabled || !rateRegionDefinitions.includes(r)))
+    .filter(
+      (r) =>
+        regionGroups[r.name].length > 0 &&
+        (generateRateGroupEnabled || !rateRegionDefinitions.includes(r)) &&
+        (generateHomeGroupEnabled || !homeRegionDefinitions.includes(r)),
+    )
     .flatMap((r) => createRegionGroup(r.name, r.icon, regionGroups[r.name]));
 
   if (otherProxies.length > 0) {
@@ -1397,15 +1415,28 @@ function main(config) {
   ];
 
   // BEGIN MyClash-A- Claude routing (generated)
-  addClaudeRoute(newConfig, "");
+  addClaudeRoute(newConfig, "", ANTHROPIC_RULES);
   // END MyClash-A- Claude routing
   return newConfig;
 }
 
 // Shared add-on: upstream MyClash code is otherwise unchanged.
+const PROVIDER="myclash_claude_anthropic";
+const PROVIDER_URL="https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs";
+const ANTHROPIC_RULES=["DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口","DOMAIN-SUFFIX,ant.dev,Claude固定出口","DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,anthropic.team,Claude固定出口","DOMAIN-SUFFIX,antspace.dev,Claude固定出口","DOMAIN-SUFFIX,chatbotclaude.com,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.app,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,claude.new,Claude固定出口","DOMAIN-SUFFIX,claude.site,Claude固定出口","DOMAIN-SUFFIX,claudeacademy.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpclient.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN-SUFFIX,claudepages.dev,Claude固定出口","DOMAIN-SUFFIX,claudestudio.com,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口"];
 const BLOCK=["DOMAIN-SUFFIX,sentry.io,REJECT","DOMAIN-SUFFIX,datadoghq.com,REJECT","DOMAIN-SUFFIX,datadoghq.eu,REJECT","DOMAIN-KEYWORD,datadoghq,REJECT"];
 const ROUTE=["DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN,anthropic.auth0.com,Claude固定出口","DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口","DOMAIN-SUFFIX,siftscience.com,Claude固定出口","DOMAIN-SUFFIX,sift.com,Claude固定出口","DOMAIN-SUFFIX,growthbook.io,Claude固定出口","IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve","IP-ASN,399358,Claude固定出口,no-resolve"];
-function addClaudeRoute(config,pinnedNode){
+function addClaudeRoute(config,pinnedNode,anthropicRules){
+if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
+!anthropicRules.every(r=>typeof r==='string'&&r.endsWith(',Claude固定出口')))
+throw Error('Missing generated Anthropic domain rules');
+if(!config['rule-providers']||config['rule-providers'][PROVIDER])throw Error('Anthropic provider collision or missing providers');
+config['rule-providers'][PROVIDER]={
+type:'http',format:'mrs',behavior:'domain',interval:86400,
+url:PROVIDER_URL,path:'./ruleset/myclash_claude_anthropic.mrs',
+'path-in-bundle':'geo/geosite/anthropic.mrs'
+};
+
 const groupName='Claude固定出口';
 const names=[...new Set(config['proxies'].filter(p=>p&&typeof p.name==='string'&&
 !['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase())).map(p=>p.name))];
@@ -1421,5 +1452,7 @@ proxies:pinnedNode?(available?[pinnedNode,'REJECT']:['REJECT']):['REJECT',...nam
 });
 const global=groups.find(g=>g.name==='GLOBAL');
 if(global&&Array.isArray(global.proxies)&&!global.proxies.includes(groupName))global.proxies.push(groupName);
-config['rules']=[...BLOCK,...ROUTE,...config['rules']];
+config['rules']=[...BLOCK,...anthropicRules,
+'RULE-SET,'+PROVIDER+',Claude固定出口',
+...ROUTE,...config['rules']];
 }
