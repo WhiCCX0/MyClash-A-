@@ -1788,6 +1788,30 @@ const PROVIDER_URL="https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta
 const ANTHROPIC_RULES=["DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口","DOMAIN-SUFFIX,ant.dev,Claude固定出口","DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,anthropic.team,Claude固定出口","DOMAIN-SUFFIX,antspace.dev,Claude固定出口","DOMAIN-SUFFIX,chatbotclaude.com,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.app,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,claude.new,Claude固定出口","DOMAIN-SUFFIX,claude.site,Claude固定出口","DOMAIN-SUFFIX,claudeacademy.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpclient.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN-SUFFIX,claudepages.dev,Claude固定出口","DOMAIN-SUFFIX,claudestudio.com,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口"];
 const BLOCK=["DOMAIN-SUFFIX,sentry.io,REJECT","DOMAIN-SUFFIX,datadoghq.com,REJECT","DOMAIN-SUFFIX,datadoghq.eu,REJECT","DOMAIN-KEYWORD,datadoghq,REJECT"];
 const ROUTE=["DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN,anthropic.auth0.com,Claude固定出口","DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口","DOMAIN,anthropic-com.ghost.io,Claude固定出口","DOMAIN-SUFFIX,siftscience.com,Claude固定出口","DOMAIN-SUFFIX,sift.com,Claude固定出口","DOMAIN-SUFFIX,growthbook.io,Claude固定出口","IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve","IP-ASN,399358,Claude固定出口,no-resolve","PROCESS-NAME,claude.exe,Claude固定出口"];
+function addRegionFallbackGroups(config){
+const groups=config['proxy-groups'];
+const proxies=config.proxies;
+const proxyNames=new Set(proxies.map(p=>p.name));
+const availableNames=new Set([...proxyNames,...groups.map(g=>g.name)]);
+for(const region of regionDefinitions){
+  const base=groups.find(g=>g.name===region.name&&g.type==='select');
+  if(!base||!Array.isArray(base.proxies))continue;
+  const members=[...new Set(base.proxies.filter(name=>proxyNames.has(name)))];
+  if(!members.length)continue;
+  const fallbackName=region.name+'-故障转移';
+  if(availableNames.has(fallbackName))throw Error('Fallback group name collision: '+fallbackName);
+  const group={
+    name:fallbackName,type:'fallback',proxies:members,
+    url:base.url||'https://www.apple.com/library/test/success.html',
+    interval:base.interval??600,timeout:base.timeout??3000,
+    lazy:base.lazy??true,'empty-fallback':'REJECT',
+  };
+  const position=groups.indexOf(base);
+  groups.splice(position+1,0,group);
+  base.proxies.push(fallbackName);
+  availableNames.add(fallbackName);
+}
+}
 function addClaudeRoute(config,pinnedNode,anthropicRules){
 if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
 !anthropicRules.every(r=>typeof r==='string'&&r.endsWith(',Claude固定出口')))
@@ -1800,16 +1824,29 @@ url:PROVIDER_URL,path:'./ruleset/myclash_claude_anthropic.mrs',
 };
 
 const groupName='Claude固定出口';
-const names=[...new Set(config['proxies'].filter(p=>p&&typeof p.name==='string'&&
-!['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase())).map(p=>p.name))];
-if(config['proxy-groups'].some(g=>g.name===groupName)||names.includes(groupName))throw Error('Claude group name collision');
-const available=Boolean(pinnedNode&&names.includes(pinnedNode));
 const groups=config['proxy-groups'];
+const names=new Set(config.proxies.filter(p=>p&&typeof p.name==='string'&&
+!['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase()))
+.map(p=>p.name));
+if(groups.some(g=>g.name===groupName)||names.has(groupName))throw Error('Claude group name collision');
+addRegionFallbackGroups(config);
+
+// Match the Taiwanese region using upstream's own classification rules.
+// Unlike a name-only filter, this is consistent with normalized custom proxies.
+const taiwanNodes=[...names].filter(name=>
+  getMatchedRegions(name).some(region=>region.name==='台湾'));
+const taiwanSet=new Set(taiwanNodes);
+const taiwanGroups=['台湾','台湾-自动选择','台湾-故障转移'].filter(name=>
+  groups.some(g=>g.name===name) && taiwanNodes.length>0);
+const available=Boolean(pinnedNode&&taiwanSet.has(pinnedNode));
+const choices=pinnedNode
+  ? (available?[pinnedNode,'REJECT']:['REJECT'])
+  : ['REJECT',...taiwanNodes,...taiwanGroups];
 const defaultIndex=groups.findIndex(g=>g.name==='默认代理');
 const insertAt=defaultIndex<0?0:defaultIndex+1;
 groups.splice(insertAt,0,{
 name:groupName,type:'select',
-proxies:pinnedNode?(available?[pinnedNode,'REJECT']:['REJECT']):['REJECT',...names],
+proxies:choices,
 'default-selected':available?pinnedNode:'REJECT'
 });
 const global=groups.find(g=>g.name==='GLOBAL');
