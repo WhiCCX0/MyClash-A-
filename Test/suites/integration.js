@@ -306,20 +306,13 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
       // Fork 的 Claude 与 Gemini 路由属于独立附加组，不改变上游极简模式基础组。
       const names = groups.map((g) => g.name);
       const isForkAddon = (name) => name === 'Claude固定出口' || name === 'Gemini Web';
-      const addons = [
-        'Claude固定出口',
-        'Gemini Web',
-      ];
+      const addons = ['Claude固定出口', 'Gemini Web'];
       h.assertDeep(
         names.filter((name) => !isForkAddon(name)),
         ['GLOBAL', '默认代理', '自动选择', '直连'],
         '过滤 Fork 附加组后，极简模式仅保留四个基础策略组',
       );
-      h.assertDeep(
-        names.filter(isForkAddon),
-        addons,
-        'Fork 附加组必须仅包含 Claude 与 Gemini Web，且顺序正确',
-      );
+      h.assertDeep(names.filter(isForkAddon), addons, 'Fork 附加组必须仅包含 Claude 与 Gemini Web，且顺序正确');
       h.assertDeep(
         names.slice(names.indexOf('默认代理') + 1, names.indexOf('自动选择')),
         addons,
