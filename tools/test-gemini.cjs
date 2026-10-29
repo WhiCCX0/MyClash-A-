@@ -8,7 +8,7 @@ const expectedGeminiRules=[
   'DOMAIN,gemini.google.com,Gemini Web',
   'DOMAIN,gemini.gstatic.com,Gemini Web',
 ];
-const sharedOrder=['美国','日本','新加坡','台湾','其他节点'];
+const sharedOrder=['手动选择','美国','日本','新加坡','台湾','其他节点'];
 const names=['🇺🇸 US 01','美国 02','🇯🇵 JP 01','日本 02','🇸🇬 SG 01','新加坡 02','🇭🇰 HK 01','香港 02','🇹🇼 TW 01','台湾 02','Mystery 01'];
 const node=(name,i,type='ss')=>({name,type,server:'node'+i+'.example.net',port:443,cipher:'aes-128-gcm',password:'test'});
 const sample={proxies:[...names.map((n,i)=>node(n,i)),node('🇺🇸 US DIRECT',50,'direct')],dns:{}};
