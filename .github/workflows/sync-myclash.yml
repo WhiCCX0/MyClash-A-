@@ -8,6 +8,9 @@ on:
       - 'tools/claude-route.cjs'
       - 'tools/sync-upstream.cjs'
       - 'tools/test-claude.cjs'
+      - 'tools/gemini-route.cjs'
+      - 'tools/test-gemini.cjs'
+      - 'gemini-route.json'
       - 'claude-route.json'
       - '.github/workflows/sync-myclash.yml'
 permissions:
@@ -29,6 +32,7 @@ jobs:
           node --check Script/mihomoScript.js
           node --check Script/Script.js
           node tools/test-claude.cjs
+          node tools/test-gemini.cjs
       - name: Commit verified scripts
         if: github.ref == 'refs/heads/main'
         run: |
