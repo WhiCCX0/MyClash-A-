@@ -1,6 +1,9 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const sample={proxies:[{name:'美国 01',type:'ss',server:'a.example.net',port:443,cipher:'aes-128-gcm',password:'test'}],dns:{}};
+const sample={proxies:[
+ ...['🇹🇼 台湾 01','🇹🇼 TW 02','🇭🇰 香港 01','🇯🇵 日本 01','🇺🇸 美国 01','🇸🇬 新加坡 01']
+ .map((name,i)=>({name,type:'ss',server:'node'+i+'.example.net',port:443,cipher:'aes-128-gcm',password:'test'}))
+],dns:{}};
 const pinned=JSON.parse(fs.readFileSync('claude-route.json','utf8')).node_name;
 for(const file of ['Script/mihomoScript.js','Script/Script.js']){
 const main=vm.runInNewContext(fs.readFileSync(file,'utf8')+'\nmain',{},{timeout:5000});
@@ -9,6 +12,28 @@ const g=cfg['proxy-groups'].find(x=>x.name==='Claude固定出口');
 assert.ok(g);assert.equal(g.type,'select');
 assert.ok(g.proxies.includes('REJECT'));assert.ok(!g.proxies.includes('DIRECT'));
 assert.ok(!g.proxies.includes('自动选择'));
+const taiwanNames=new Set(['🇹🇼 台湾 01','🇹🇼 TW 02']);
+const taiwanGroupNames=['台湾','台湾-自动选择','台湾-故障转移'];
+const expectedTaiwan=['REJECT',...taiwanNames,...taiwanGroupNames];
+const allowedTaiwan=new Set(expectedTaiwan);
+assert.ok(g.proxies.every(name=>allowedTaiwan.has(name)),file+': non-Taiwan in Claude');
+const byName=new Map(cfg['proxy-groups'].map(group=>[group.name,group]));
+for(const region of ['香港','日本','美国','新加坡','台湾']){
+ const manual=byName.get(region);
+ const fallback=byName.get(region+'-故障转移');
+ assert.ok(manual&&fallback,file+': missing '+region+' failover');
+ assert.equal(fallback.type,'fallback');
+ assert.ok(manual.proxies.includes(fallback.name));
+ assert.ok(fallback.proxies.length>0);
+ assert.ok(fallback.proxies.every(name=>cfg.proxies.some(p=>p.name===name)));
+ assert.ok(!fallback.proxies.includes('REJECT'));
+ assert.ok(!fallback.proxies.some(name=>name.endsWith('-自动选择')));
+ assert.ok(fallback.url&&fallback.interval>0);
+}
+assert.deepEqual(Array.from(g.proxies).sort(),(pinned
+  ? (taiwanNames.has(pinned)?[pinned,'REJECT']:['REJECT'])
+  : expectedTaiwan).sort());
+
 assert.equal(cfg.rules[0],'DOMAIN-SUFFIX,sentry.io,REJECT');
 assert.equal(cfg.rules[3],'DOMAIN-KEYWORD,datadoghq,REJECT');
 assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
@@ -50,6 +75,11 @@ assert.ok(cfg.rules.indexOf('DOMAIN-SUFFIX,claude.new,Claude固定出口') < aiI
 
 assert.ok(cfg.dns&&cfg.tun&&cfg.profile['store-selected']);
 if(pinned){assert.ok(g.proxies.length<=2);assert.equal(g.proxies[0],g.proxies.length===2?pinned:'REJECT');}
-else {assert.equal(g.proxies[0],'REJECT');assert.ok(g.proxies.length>1);}
+else {assert.equal(g.proxies[0],'REJECT');assert.equal(g.proxies.length,expectedTaiwan.length);}
+const noTw=main({proxies:[{name:'🇺🇸 美国 01',type:'ss',server:'example.net',port:443,cipher:'aes-128-gcm',password:'test'}],dns:{}});
+const noTwGroup=noTw['proxy-groups'].find(x=>x.name==='Claude固定出口');
+assert.deepEqual(Array.from(noTwGroup.proxies),['REJECT'],file+': missing Taiwan must reject');
+assert.ok(!noTw['proxy-groups'].some(x=>x.name==='台湾-故障转移'));
+
 console.log('PASS '+file);
 }
