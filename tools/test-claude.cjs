@@ -13,23 +13,19 @@ assert.ok(g);assert.equal(g.type,'select');
 assert.ok(g.proxies.includes('REJECT'));assert.ok(!g.proxies.includes('DIRECT'));
 assert.ok(!g.proxies.includes('自动选择'));
 const taiwanNames=new Set(['🇹🇼 台湾 01','🇹🇼 TW 02']);
-const taiwanGroupNames=['台湾','台湾-自动选择','台湾-故障转移'];
+const taiwanGroupNames=['台湾','台湾-自动选择'];
 const expectedTaiwan=['REJECT',...taiwanNames,...taiwanGroupNames];
 const allowedTaiwan=new Set(expectedTaiwan);
 assert.ok(g.proxies.every(name=>allowedTaiwan.has(name)),file+': non-Taiwan in Claude');
 const byName=new Map(cfg['proxy-groups'].map(group=>[group.name,group]));
 for(const region of ['香港','日本','美国','新加坡','台湾']){
  const manual=byName.get(region);
- const fallback=byName.get(region+'-故障转移');
- assert.ok(manual&&fallback,file+': missing '+region+' failover');
- assert.equal(fallback.type,'fallback');
- assert.ok(manual.proxies.includes(fallback.name));
- assert.ok(fallback.proxies.length>0);
- assert.ok(fallback.proxies.every(name=>cfg.proxies.some(p=>p.name===name)));
- assert.ok(!fallback.proxies.includes('REJECT'));
- assert.ok(!fallback.proxies.some(name=>name.endsWith('-自动选择')));
- assert.ok(fallback.url&&fallback.interval>0);
+ const auto=byName.get(region+'-自动选择');
+ assert.ok(manual && auto && auto.type==='url-test',
+   file+': existing '+region+' groups must be preserved');
 }
+assert.ok(!cfg['proxy-groups'].some(group=>group.type==='fallback' ||
+ group.name.endsWith('-故障转移')),file+': unwanted fallback group');
 assert.deepEqual(Array.from(g.proxies).sort(),(pinned
   ? (taiwanNames.has(pinned)?[pinned,'REJECT']:['REJECT'])
   : expectedTaiwan).sort());
@@ -79,7 +75,7 @@ else {assert.equal(g.proxies[0],'REJECT');assert.equal(g.proxies.length,expected
 const noTw=main({proxies:[{name:'🇺🇸 美国 01',type:'ss',server:'example.net',port:443,cipher:'aes-128-gcm',password:'test'}],dns:{}});
 const noTwGroup=noTw['proxy-groups'].find(x=>x.name==='Claude固定出口');
 assert.deepEqual(Array.from(noTwGroup.proxies),['REJECT'],file+': missing Taiwan must reject');
-assert.ok(!noTw['proxy-groups'].some(x=>x.name==='台湾-故障转移'));
+assert.ok(!noTw['proxy-groups'].some(x=>x.type==='fallback' || x.name.endsWith('-故障转移')));
 
 console.log('PASS '+file);
 }
