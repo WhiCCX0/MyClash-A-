@@ -79,10 +79,14 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   check(file+'/new groups are only select',()=>{
     for(const g of added){assert.equal(g.type,'select');assert.ok(!('strategy' in g));assert.ok(!('hash-key' in g));}
   });
-  check(file+'/GLOBAL contains only Gemini Web',()=>{
+  check(file+'/GLOBAL contains Gemini root and all five regions once',()=>{
     const list=byName.get('GLOBAL').proxies;
-    assert.ok(list.includes('Gemini Web'));
-    for(const r of regions)assert.ok(!list.includes('Gemini '+r));
+    const expected=['Gemini Web',...regions.map(r=>'Gemini '+r)];
+    for(const name of expected){
+      assert.ok(list.includes(name),file+': GLOBAL missing '+name);
+      assert.equal(list.filter(n=>n===name).length,1,file+': GLOBAL duplicated '+name);
+    }
+    assert.deepEqual(plain(list.filter(n=>expected.includes(n))),expected);
   });
   check(file+'/Claude selector invariant',()=>{
     const get=x=>x['proxy-groups'].find(g=>g.name==='Claude固定出口');
@@ -111,7 +115,7 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
     const generated=new Set(added.map(g=>g.name));
     current['proxy-groups']=current['proxy-groups'].filter(g=>!generated.has(g.name));
     const global=current['proxy-groups'].find(g=>g.name==='GLOBAL');
-    global.proxies=global.proxies.filter(n=>n!=='Gemini Web');
+    global.proxies=global.proxies.filter(n=>!generated.has(n));
     for(const key of ['rules','proxy-groups','proxies','dns','tun','mixed-port','rule-providers'])
       assert.deepEqual(current[key],base[key],key);
   });
