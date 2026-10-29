@@ -6,6 +6,11 @@
 - Claude / Anthropic：每天从 `v2fly/domain-list-community/data/anthropic` 拉取全量域名，生成显式规则；另使用 MetaCubeX 的 `anthropic.mrs`（24 小时刷新）补充新域名。**两层规则都排在原版 AI 分组之前**。
 - 上游 `category-ai-!cn` 数据集仍包含 Anthropic，但由于优先命中 Claude 规则，实际流量不会再按普通 AI 分流。对完全未知、尚未收录的域名无法保证。
 - Sift、GrowthBook → Claude固定出口。
+- 增加 `DOMAIN,anthropic-com.ghost.io` 专属第三方主机；保留 `anthropic.auth0.com` 和 CDN 规则。
+- Windows 原生 CLI 额外使用 `PROCESS-NAME,claude.exe,Claude固定出口`，在 Mihomo 能识别进程时捕获未知域名；不覆盖浏览器、子进程、本地网关或未被接管流量。会将 Claude 进程访问的其他网站也送到该组。
+- 不全局劫持 `storage.googleapis.com`、`raw.githubusercontent.com`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享域名，以免影响其他应用。
+- `160.79.104.0/21` 是 Anthropic 官方公布的服务器出站 IP 池，非用户访问 Claude 的全部目标地址；仍保留此原有 IP 兜底。详见官方 https://platform.claude.com/docs/en/api/ip-addresses
+- 路由不能保证隐藏真实位置或账号不被风控；实际效果必须查连接日志及所选出口。
 - 初始策略组默认为 REJECT。必须在 Bettbox 中选择一个真实节点，且不选自动或地区组；MyClash 会尝试保存选择。
 - 若希望硬固定节点，可在 claude-route.json 中填写 MyClash 标准化后的完整节点名；节点消失会拒绝连接，不自动切换。
 - 固定节点名不代表固定公网 IP，也不能保证完全没有代理绕过，更无法保证不会被封号。
