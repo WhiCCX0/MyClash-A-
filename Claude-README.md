@@ -11,8 +11,8 @@
 - 不全局劫持 `storage.googleapis.com`、`raw.githubusercontent.com`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享域名，以免影响其他应用。
 - `160.79.104.0/21` 是 Anthropic 官方公布的服务器出站 IP 池，非用户访问 Claude 的全部目标地址；仍保留此原有 IP 兜底。详见官方 https://platform.claude.com/docs/en/api/ip-addresses
 - 路由不能保证隐藏真实位置或账号不被风控；实际效果必须查连接日志及所选出口。
-- 初始策略组默认为 REJECT。必须在 Bettbox 中选择一个真实节点，且不选自动或地区组；MyClash 会尝试保存选择。
-- 若希望硬固定节点，可在 claude-route.json 中填写 MyClash 标准化后的完整节点名；节点消失会拒绝连接，不自动切换。
+- Claude固定出口只列出识别到的台湾具体节点、`台湾` 和 `台湾-自动选择`；默认 `REJECT`，无台湾节点时只有 `REJECT`。`台湾-自动选择` 使用 `url-test`，可能更换所选台湾出口；需要固定节点请直接选择一个台湾具体节点。
+- 不生成 `fallback` / `故障转移` 节点组，其他地区分组沿用原版手动选择与自动选择。若希望硬固定节点，可在 claude-route.json 中填写 MyClash 标准化后的台湾节点全名；节点消失或非台湾节点会拒绝连接，不自动切换到其他地区。
 - 固定节点名不代表固定公网 IP，也不能保证完全没有代理绕过，更无法保证不会被封号。
 - Fork 仓库需要在 Actions 中允许工作流执行，并配置 Actions 工作流读写仓库权限。首次执行可手动 Run workflow。
 - 只导入其中一个 Raw JS 覆写，不与官方版或 one-exit 同时启用。检查 Bettbox TUN 状态和连接日志。
