@@ -12,7 +12,26 @@ assert.ok(!g.proxies.includes('自动选择'));
 assert.equal(cfg.rules[0],'DOMAIN-SUFFIX,sentry.io,REJECT');
 assert.equal(cfg.rules[3],'DOMAIN-KEYWORD,datadoghq,REJECT');
 assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
-assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,anthropic.com,Claude固定出口'));
+const required = [
+ 'ant.dev','anthropic.com','anthropic.team','antspace.dev',
+ 'chatbotclaude.com','clau.de','claude.ai','claude.app','claude.com',
+ 'claude.dev','claude.new','claude.site','claudeacademy.com',
+ 'claudemcpclient.com','claudemcpcontent.com','claudepages.dev',
+ 'claudestudio.com','claudeusercontent.com'
+];
+for(const domain of required) {
+ assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,'+domain+',Claude固定出口'),
+   file+': lost Claude domain '+domain);
+}
+assert.ok(cfg.rules.includes('DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口'));
+const provider = cfg['rule-providers'].myclash_claude_anthropic;
+assert.ok(provider && provider.type === 'http' && provider.behavior === 'domain' &&
+ provider.format === 'mrs' && provider.url.includes('anthropic.mrs'));
+const claudeIdx=cfg.rules.indexOf('RULE-SET,myclash_claude_anthropic,Claude固定出口');
+const aiIdx=cfg.rules.indexOf('RULE-SET,ai,AI');
+if (aiIdx >= 0) assert.ok(claudeIdx >= 0 && claudeIdx < aiIdx, file+': Claude after AI');
+assert.ok(cfg.rules.indexOf('DOMAIN-SUFFIX,claude.new,Claude固定出口') < aiIdx || aiIdx < 0);
+
 assert.ok(cfg.dns&&cfg.tun&&cfg.profile['store-selected']);
 if(pinned){assert.ok(g.proxies.length<=2);assert.equal(g.proxies[0],g.proxies.length===2?pinned:'REJECT');}
 else {assert.equal(g.proxies[0],'REJECT');assert.ok(g.proxies.length>1);}
