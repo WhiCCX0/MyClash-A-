@@ -57,33 +57,6 @@ const ROUTE=[
 // Windows native Claude Code catch-all. Applies only if Mihomo identifies the process.
 'PROCESS-NAME,claude.exe,Claude固定出口'
 ];
-// Build optional per-country failover groups using the SAME country membership
-// already computed by upstream MyClash. Do not include other regions or group refs.
-function addRegionFallbackGroups(config){
-const groups=config['proxy-groups'];
-const proxies=config.proxies;
-const proxyNames=new Set(proxies.map(p=>p.name));
-const availableNames=new Set([...proxyNames,...groups.map(g=>g.name)]);
-for(const region of regionDefinitions){
-  const base=groups.find(g=>g.name===region.name&&g.type==='select');
-  if(!base||!Array.isArray(base.proxies))continue;
-  const members=[...new Set(base.proxies.filter(name=>proxyNames.has(name)))];
-  if(!members.length)continue;
-  const fallbackName=region.name+'-故障转移';
-  if(availableNames.has(fallbackName))throw Error('Fallback group name collision: '+fallbackName);
-  const group={
-    name:fallbackName,type:'fallback',proxies:members,
-    url:base.url||'https://www.apple.com/library/test/success.html',
-    interval:base.interval??600,timeout:base.timeout??3000,
-    lazy:base.lazy??true,'empty-fallback':'REJECT',
-  };
-  const position=groups.indexOf(base);
-  groups.splice(position+1,0,group);
-  base.proxies.push(fallbackName);
-  availableNames.add(fallbackName);
-}
-}
-
 function addClaudeRoute(config,pinnedNode,anthropicRules){
 if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
 !anthropicRules.every(r=>typeof r==='string'&&r.endsWith(',Claude固定出口')))
@@ -101,14 +74,13 @@ const names=new Set(config.proxies.filter(p=>p&&typeof p.name==='string'&&
 !['direct','reject','reject-drop','pass','compatible'].includes(String(p.type).toLowerCase()))
 .map(p=>p.name));
 if(groups.some(g=>g.name===groupName)||names.has(groupName))throw Error('Claude group name collision');
-addRegionFallbackGroups(config);
 
 // Match the Taiwanese region using upstream's own classification rules.
 // Unlike a name-only filter, this is consistent with normalized custom proxies.
 const taiwanNodes=[...names].filter(name=>
   getMatchedRegions(name).some(region=>region.name==='台湾'));
 const taiwanSet=new Set(taiwanNodes);
-const taiwanGroups=['台湾','台湾-自动选择','台湾-故障转移'].filter(name=>
+const taiwanGroups=['台湾','台湾-自动选择'].filter(name=>
   groups.some(g=>g.name===name) && taiwanNodes.length>0);
 const available=Boolean(pinnedNode&&taiwanSet.has(pinnedNode));
 const choices=pinnedNode
@@ -147,7 +119,6 @@ return result+'\n// Shared add-on: upstream MyClash code is otherwise unchanged.
 'const ANTHROPIC_RULES='+JSON.stringify(anthropicRules)+';\n'+
 'const BLOCK='+JSON.stringify(BLOCK)+';\n'+
 'const ROUTE='+JSON.stringify(ROUTE)+';\n'+
-addRegionFallbackGroups.toString()+'\n'+
 addClaudeRoute.toString()+'\n';
 }
 module.exports={patch,parseAnthropicSource,BLOCK,ROUTE};
