@@ -305,8 +305,7 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
       const groups = out['proxy-groups'];
       // Fork 的 Claude 与 Gemini 路由属于独立附加组，不改变上游极简模式基础组。
       const names = groups.map((g) => g.name);
-      const isForkAddon = (name) =>
-        name === 'Claude固定出口' || name === 'Gemini Web' || name.startsWith('Gemini ');
+      const isForkAddon = (name) => name === 'Claude固定出口' || name === 'Gemini Web' || name.startsWith('Gemini ');
       const addons = [
         'Claude固定出口',
         'Gemini Web',
