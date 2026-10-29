@@ -2,6 +2,8 @@
 
 - 由 `tools/sync-upstream.cjs` 对上游 MyClash 依次应用原有 Claude 与 Gemini patch，重建两版 `Script/*.js`；不手动编辑生成文件。
 - `Gemini Web` 是唯一新增的 Gemini `select` 策略组，默认 `默认代理`；其后按顺序引用上游已有且有成员的 `美国`、`日本`、`新加坡`、`台湾`、`其他节点`。极简模式仅引用 `默认代理`。不再新增 `Gemini 美国` 等专属组，不加入 `香港`，不引用 `*-自动选择` 组、DIRECT、REJECT、直连；`GLOBAL` 仅新增 `Gemini Web`。
+- **手动选择：** `Gemini Web` 会在 `默认代理` 后优先列出存在且非空的 `手动选择`，其后才是原有地区组。`手动选择` 包含**所有节点（包括香港）**，Gemini / AI Studio 使用时不要选择香港节点；它是**共用组**，如果 `默认代理` 也选择了 `手动选择`，两者共用同一个节点选择。
+
 - **共享选择的代价：** 同一个上游地区组只记一个节点选择。`Claude固定出口` 应直接选**台湾具体节点**，不要选原生 `台湾` 组，否则与 Gemini 共享选择状态。地区组内手动选具体节点，不要选 `*-自动选择`：上游自动测速周期 **600 秒**、容差 **50ms**，可能发生出口切换。`默认代理` 本身也可能变化。
 - `其他节点` 可能含 Google 不支持的地区，使用前自行核实真实出口。[AI Studio 官方可用地区](https://ai.google.dev/gemini-api/docs/available-regions) 不包含香港，因此从总组移除香港。
 - 精确规则依次为 `IN-USER,gemini-01/aistudio-01,Gemini Web` → `PROCESS-PATH-REGEX,\\(gemini-web2api-go|aistudio2api)\.exe$,Gemini Web` → `DOMAIN,gemini.google.com,Gemini Web` → `DOMAIN,gemini.gstatic.com,Gemini Web`，紧接原 Claude 规则。新增 `gemini.gstatic.com` 是因为 Bettbox 真机日志显示浏览器访问时曾走 `默认代理`；不加入 `www.gstatic.com`、`ssl.gstatic.com` 或宽泛的 `gstatic.com` 后缀规则。
