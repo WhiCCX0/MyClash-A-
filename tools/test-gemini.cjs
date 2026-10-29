@@ -1,6 +1,12 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {parseGeminiConfig,patchGemini}=require('./gemini-route.cjs');
+const routeConfig=parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json','utf8')));
+const expectedGeminiRules=[
+  'IN-USER,'+routeConfig.in_users.join('/')+',Gemini Web',
+  ...(routeConfig.process_path_regex?['PROCESS-PATH-REGEX,'+routeConfig.process_path_regex+',Gemini Web']:[]),
+  'DOMAIN,gemini.google.com,Gemini Web',
+];
 const regions=['美国','日本','新加坡','香港','台湾'];
 const names=['🇺🇸 US 01','美国 02','🇯🇵 JP 01','日本 02','🇸🇬 SG 01','新加坡 02','🇭🇰 HK 01','香港 02','🇹🇼 TW 01','台湾 02','Mystery 01'];
 const node=(name,i,type='ss')=>({name,type,server:'node'+i+'.example.net',port:443,cipher:'aes-128-gcm',password:'test'});
@@ -97,12 +103,26 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   check(file+'/rules exact insertion/priority',()=>{
     const rules=cfg.rules,at=rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口');
     assert.ok(at>=0);
-    assert.equal(rules[at+1],'IN-USER,gemini-01,Gemini Web');
-    assert.equal(rules[at+2],'DOMAIN,gemini.google.com,Gemini Web');
-    assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,2);
-    assert.ok(!rules.some(r=>r.startsWith('PROCESS-PATH-REGEX,')));
+    assert.deepEqual(plain(rules.slice(at+1,at+1+expectedGeminiRules.length)),expectedGeminiRules);
+    assert.deepEqual(routeConfig.in_users,['gemini-01','aistudio-01']);
+    assert.equal(rules[at+1],'IN-USER,gemini-01/aistudio-01,Gemini Web');
+    assert.equal(rules.filter(r=>r.startsWith('IN-USER,')&&r.endsWith(',Gemini Web')).length,1);
+    assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web')).length,1);
+    assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,expectedGeminiRules.length);
     for(const rule of ['RULE-SET,google,Google','RULE-SET,ai,AI'])
-      if(rules.includes(rule))assert.ok(rules.indexOf(rule)>at+2);
+      if(rules.includes(rule))assert.ok(rules.indexOf(rule)>at+expectedGeminiRules.length);
+  });
+  check(file+'/process regex accepts both Windows backends only',()=>{
+    const lines=cfg.rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web'));
+    assert.equal(lines.length,1,'Exactly one Gemini process regex rule');
+    assert.equal(lines[0],expectedGeminiRules[1]);
+    const pattern=lines[0].slice('PROCESS-PATH-REGEX,'.length, -',Gemini Web'.length);
+    assert.equal(pattern,routeConfig.process_path_regex);
+    const regex=new RegExp(pattern);
+    assert.ok(regex.test('D:\\x\\bin\\gemini-web2api-go.exe'));
+    assert.ok(regex.test('D:\\x\\package\\aistudio2api.exe'));
+    assert.ok(!regex.test('D:\\x\\camoufox.exe'));
+    assert.ok(!regex.test('D:\\x\\gemini-web2api-go.exe.bak'));
   });
   check(file+'/no shared Google domains',()=>{
     const forbidden=['accounts.google.com','content-push.googleapis.com','push.clients6.google.com',
@@ -111,7 +131,10 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   });
   check(file+'/Claude-only deep invariants',()=>{
     const current=plain(cfg),base=plain(old);
-    current.rules.splice(current.rules.indexOf('IN-USER,gemini-01,Gemini Web'),2);
+    const start=current.rules.indexOf(expectedGeminiRules[0]);
+    assert.ok(start>=0,'Gemini rules must be present for invariant test');
+    assert.deepEqual(current.rules.slice(start,start+expectedGeminiRules.length),expectedGeminiRules);
+    current.rules.splice(start,expectedGeminiRules.length);
     const generated=new Set(added.map(g=>g.name));
     current['proxy-groups']=current['proxy-groups'].filter(g=>!generated.has(g.name));
     const global=current['proxy-groups'].find(g=>g.name==='GLOBAL');
