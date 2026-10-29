@@ -90,6 +90,8 @@ function addGeminiRoute(config, cfg) {
   }
   geminiRules.push('DOMAIN,gemini.google.com,Gemini Web');
   geminiRules.push('DOMAIN,gemini.gstatic.com,Gemini Web');
+  geminiRules.push('DOMAIN,ai.google.dev,Gemini Web');
+  geminiRules.push('DOMAIN,aistudio.google.com,Gemini Web');
   config.rules.splice(lastIndex + 1, 0, ...geminiRules);
 }
 

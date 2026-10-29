@@ -7,6 +7,8 @@ const expectedGeminiRules=[
   ...(routeConfig.process_path_regex?['PROCESS-PATH-REGEX,'+routeConfig.process_path_regex+',Gemini Web']:[]),
   'DOMAIN,gemini.google.com,Gemini Web',
   'DOMAIN,gemini.gstatic.com,Gemini Web',
+  'DOMAIN,ai.google.dev,Gemini Web',
+  'DOMAIN,aistudio.google.com,Gemini Web',
 ];
 const sharedOrder=['手动选择','美国','日本','新加坡','台湾','其他节点'];
 const names=['🇺🇸 US 01','美国 02','🇯🇵 JP 01','日本 02','🇸🇬 SG 01','新加坡 02','🇭🇰 HK 01','香港 02','🇹🇼 TW 01','台湾 02','Mystery 01'];
@@ -92,16 +94,16 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   check(file+'/Claude selector invariant',()=>{
     assert.deepEqual(plain(byName.get('Claude固定出口')),plain(oldByName.get('Claude固定出口')));
   });
-  check(file+'/rules exact four, order and priority',()=>{
+  check(file+'/rules exact six, order and priority',()=>{
     const rules=cfg.rules,at=rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口');
     assert.ok(at>=0);
-    assert.equal(expectedGeminiRules.length,4,'Expected IN-USER, process, and two domain rules');
-    assert.deepEqual(plain(rules.slice(at+1,at+5)),expectedGeminiRules);
-    assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,4);
+    assert.equal(expectedGeminiRules.length,6,'Expected IN-USER, process, and four domain rules');
+    assert.deepEqual(plain(rules.slice(at+1,at+1+expectedGeminiRules.length)),expectedGeminiRules);
+    assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,expectedGeminiRules.length);
     assert.equal(rules.filter(r=>r.startsWith('IN-USER,')&&r.endsWith(',Gemini Web')).length,1);
     assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web')).length,1);
     for(const rule of ['RULE-SET,google,Google','RULE-SET,ai,AI'])
-      if(rules.includes(rule))assert.ok(rules.indexOf(rule)>at+4);
+      if(rules.includes(rule))assert.ok(rules.indexOf(rule)>at+expectedGeminiRules.length);
   });
   check(file+'/process regex accepts both Windows backends only',()=>{
     const lines=cfg.rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web'));
@@ -121,7 +123,8 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
     const rules=cfg.rules.filter(rule=>rule.endsWith(',Gemini Web'));
     assert.ok(!rules.some(rule=>forbidden.some(domain=>rule.includes(domain))));
     assert.ok(!rules.some(rule=>rule.includes('DOMAIN-SUFFIX,gstatic.com')||rule.includes('DOMAIN,gstatic.com')));
-    assert.equal(rules.filter(rule=>rule==='DOMAIN,gemini.gstatic.com,Gemini Web').length,1);
+    for(const domain of ['gemini.gstatic.com','ai.google.dev','aistudio.google.com'])
+      assert.equal(rules.filter(rule=>rule==='DOMAIN,'+domain+',Gemini Web').length,1);
   });
   check(file+'/Claude-only deep invariants',()=>{
     const current=plain(cfg),base=plain(old);
@@ -168,6 +171,8 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
     assert.equal(rules[at+1],'PROCESS-PATH-REGEX,'+opt.process_path_regex+',Gemini Web');
     assert.equal(rules[at+2],'DOMAIN,gemini.google.com,Gemini Web');
     assert.equal(rules[at+3],'DOMAIN,gemini.gstatic.com,Gemini Web');
+    assert.equal(rules[at+4],'DOMAIN,ai.google.dev,Gemini Web');
+    assert.equal(rules[at+5],'DOMAIN,aistudio.google.com,Gemini Web');
     assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')).length,1);
   });
   check(file+'/patch rejects duplicate or missing Claude',()=>{
