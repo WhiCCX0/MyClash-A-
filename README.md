@@ -51,6 +51,33 @@
 
 若要在构建时强制绑定一个具体节点，可编辑 [`claude-route.json`](./claude-route.json) 的 `node_name`（填写**MyClash 标准化后的台湾具体节点全名**；非台湾节点会被拒绝）；该节点不再存在时，构建出的组仅保留 `REJECT`，不会回退直连。留空表示在 Bettbox 内手动选择。
 
+### Gemini Web 路由（P0）
+
+新增 **Gemini Web**（`select`，默认选择 `默认代理`）和最多五个独立的 Gemini 地区手动组：`Gemini 美国`、`Gemini 日本`、`Gemini 新加坡`、`Gemini 香港`、`Gemini 台湾`。各地区只使用上游 MyClash 已归类的真实节点，空地区不生成；与原有地区组和 Google、AI、Claude 组相互独立。`GLOBAL` 仅追加 `Gemini Web`。不新增监听端口、`fallback`、`url-test`、`load-balance` 或 `hash-key`。
+
+**固定出口：** `默认代理` 只是初始选项，可能跟随其他自动组变化，**不保证固定出口**。如需固定节点，应在 `Gemini Web` 中选一个 `Gemini <地区>`，再在该地区组里选择具体节点；固定节点名也不保证公网 IP 永不变化。
+
+**实际规则顺序：** 原 Claude BLOCK 和 Anthropic 规则全部保留；紧接 Claude 最后一条 `PROCESS-NAME,claude.exe,Claude固定出口` 插入 `IN-USER,gemini-01,Gemini Web` 和 `DOMAIN,gemini.google.com,Gemini Web`，随后才是上游 Google、AI 等规则。`accounts.google.com`、`push.clients6.google.com`、`content-push.googleapis.com` 等共享 Google 主机不会被全局划入 Gemini 组。
+
+**后端连接：** gemini-web2api-go 不读取 `HTTP(S)_PROXY` 环境变量；请在反代后端的**代理池**中填写 `http://gemini-01:x@127.0.0.1:7890`。用户名只是 `IN-USER` 路由标签，**不是认证身份**；原有 `allow-lan: true` 与 `bind-address: '*'` 保留，局域网客户端也能使用相同标签。`IN-USER` 仅覆盖带代理认证用户名的 HTTP/mixed 入站连接；TUN 接管且不带用户名的连接不会因此匹配。
+
+**进程兜底默认关闭。** `gemini-route.json` 中 `process_path_regex` 初始为空字符串，不生成 `PROCESS-PATH-REGEX`。只能在 Bettbox 的真实连接日志确认后端进程完整路径后，才可选填锚定、转义后的路径正则，提交并重新生成。进程规则会把该进程访问的**所有目标**（包含非 Google 目标）交给 Gemini Web；JS `new RegExp()` 校验通过不保证 Mihomo 正则语法相容，必须真机验证。不能猜测 Windows 路径。
+
+**已知限制：** 账号跨请求出口漂移、请求内部 Cookie 续期不使用已选代理属于反代后端第二阶段问题，P0 不修复。`round-robin` 按连接切换节点，可能破坏后端的同出口要求，因此不采用。本功能不保证避免 Google 风控。
+
+#### Bettbox 真机验收（由用户操作）
+
+1. 复制一份订阅配置进行测试，导入[此分支全量 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/feat/gemini-web-p0/Script/mihomoScript.js)或[精简 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/feat/gemini-web-p0/Script/Script.js)作为**唯一覆写脚本**；验证内核可加载，记录 Bettbox 与 Mihomo 版本。
+2. 在面板确认 `Gemini Web` 和有节点的 Gemini 地区组可见，初始为 `默认代理`；在地区组内选择具体节点。
+3. 后端代理池填写 `http://gemini-01:x@127.0.0.1:7890` 并发送一次对话；从连接日志或 `127.0.0.1:9090` 的 connections 接口确认 `IN-USER` 命中，出口链为 `Gemini Web → 地区组 → 具体节点`。
+4. 验证浏览器访问 `accounts.google.com` 仍使用原 Google 组，`gemini.google.com` 匹配 Gemini 专用 DOMAIN 规则，Claude Code 仍使用 `Claude固定出口`。**步骤 1–4 全通过即为 P0 真机通过。**
+5. 查找新账号首次 Cookie 续期等**不带 IN-USER** 的连接，记录是否能识别到真实后端进程路径；识别不到则保持「进程兜底未启用」。
+6. （可选）确认完整路径后，才配置 `process_path_regex`，等待重新生成并复测 `PROCESS-PATH-REGEX`；注意正则锚定和反斜杠、点号转义。
+7. 记录同账号连续请求的实际出口节点，供后端第二阶段使用；此项不作为 P0 通过条件。
+
+简明说明见 [Gemini-README.md](./Gemini-README.md)。在本 PR 合并前，`main` 的 Raw 链接仍是旧版，不含 Gemini P0。
+
+
 ### Bettbox 中看不到 `Claude固定出口`？
 
 1. **机场订阅与脚本覆写是不同入口**：请先正常导入机场节点订阅，再到 Bettbox 的脚本覆写页面绑定本 Fork 的全量或精简 **JS Raw 地址**；不要将 JS 当成机场订阅 YAML 导入。
