@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs');
 const {patch,parseAnthropicSource}=require('./claude-route.cjs');
+const {parseGeminiConfig,patchGemini}=require('./gemini-route.cjs');
 const files=['Script/mihomoScript.js','Script/Script.js'];
 async function get(url){
   for(let i=0;i<3;i++){
@@ -13,6 +14,7 @@ async function get(url){
 }
 async function main(){
 const cfg=JSON.parse(fs.readFileSync('claude-route.json','utf8'));
+const geminiCfg=parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json','utf8')));
 if(typeof cfg.node_name!=='string')throw Error('node_name must be string');
 const meta=JSON.parse(await get('https://api.github.com/repos/AIsouler/MyClash/commits/main'));
 if(!/^[a-f0-9]{40}$/.test(meta.sha))throw Error('Invalid upstream SHA');
@@ -24,7 +26,7 @@ console.log('Anthropic canonical rules: '+anthropicRules.length);
 const generated={};
 for(const file of files){
 const source=await get('https://raw.githubusercontent.com/AIsouler/MyClash/'+meta.sha+'/'+file);
-generated[file]=patch(source,cfg.node_name,anthropicRules);
+generated[file]=patchGemini(patch(source,cfg.node_name,anthropicRules),geminiCfg);
 }
 for(const file of files){fs.writeFileSync(file,generated[file]);console.log(file+' built at '+meta.sha);}
 }

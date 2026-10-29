@@ -1,4 +1,4 @@
-name: Daily MyClash + Claude routes
+name: Daily MyClash + Claude + Gemini routes
 on:
   schedule:
     - cron: '23 3 * * *'
@@ -8,6 +8,9 @@ on:
       - 'tools/claude-route.cjs'
       - 'tools/sync-upstream.cjs'
       - 'tools/test-claude.cjs'
+      - 'tools/gemini-route.cjs'
+      - 'tools/test-gemini.cjs'
+      - 'gemini-route.json'
       - 'claude-route.json'
       - '.github/workflows/sync-myclash.yml'
 permissions:
@@ -29,13 +32,15 @@ jobs:
           node --check Script/mihomoScript.js
           node --check Script/Script.js
           node tools/test-claude.cjs
+          node tools/test-gemini.cjs
       - name: Commit verified scripts
+        if: github.ref == 'refs/heads/main'
         run: |
           git diff --check
           git add Script/mihomoScript.js Script/Script.js
           if ! git diff --cached --quiet; then
             git config user.name 'github-actions[bot]'
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-            git commit -m "chore: sync MyClash upstream with Claude routes"
+            git commit -m "chore: sync MyClash upstream with Claude and Gemini routes"
             git push origin HEAD:main
           fi

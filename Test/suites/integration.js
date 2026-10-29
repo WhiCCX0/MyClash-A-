@@ -303,10 +303,33 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
     withOptions(api, { 极简模式: true }, () => {
       const out = api.main(fx.typicalSubscription());
       const groups = out['proxy-groups'];
+      // Fork 的 Claude 与 Gemini 路由属于独立附加组，不改变上游极简模式基础组。
+      const names = groups.map((g) => g.name);
+      const isForkAddon = (name) =>
+        name === 'Claude固定出口' || name === 'Gemini Web' || name.startsWith('Gemini ');
+      const addons = [
+        'Claude固定出口',
+        'Gemini Web',
+        'Gemini 美国',
+        'Gemini 日本',
+        'Gemini 新加坡',
+        'Gemini 香港',
+        'Gemini 台湾',
+      ];
       h.assertDeep(
-        groups.map((g) => g.name),
+        names.filter((name) => !isForkAddon(name)),
         ['GLOBAL', '默认代理', '自动选择', '直连'],
-        '极简模式策略组应仅保留 GLOBAL、默认代理、自动选择和直连',
+        '过滤 Fork 附加组后，极简模式仅保留四个基础策略组',
+      );
+      h.assertDeep(
+        names.filter(isForkAddon),
+        addons,
+        'Fork 附加组必须全部存在，且依次为 Claude、Gemini 总入口、五个 Gemini 地区组',
+      );
+      h.assertDeep(
+        names.slice(names.indexOf('默认代理') + 1, names.indexOf('自动选择')),
+        addons,
+        'Fork 附加组应紧随默认代理，并位于自动选择之前',
       );
       h.assert(!out.dns['fake-ip-filter'].includes('rule-set:googlefcm'), '不应注入 FCM fake-IP 规则');
       h.assert(!out.rules.some((rule) => /,(Google|AI|Telegram|Steam|AdBlock)$/.test(rule)), '不应生成分流规则');
