@@ -30,6 +30,7 @@ jobs:
           node --check Script/Script.js
           node tools/test-claude.cjs
       - name: Commit verified scripts
+        if: github.ref == 'refs/heads/main'
         run: |
           git diff --check
           git add Script/mihomoScript.js Script/Script.js
