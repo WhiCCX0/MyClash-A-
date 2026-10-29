@@ -51,32 +51,39 @@
 
 若要在构建时强制绑定一个具体节点，可编辑 [`claude-route.json`](./claude-route.json) 的 `node_name`（填写**MyClash 标准化后的台湾具体节点全名**；非台湾节点会被拒绝）；该节点不再存在时，构建出的组仅保留 `REJECT`，不会回退直连。留空表示在 Bettbox 内手动选择。
 
-### Gemini Web 路由（P0）
+### Gemini Web 路由（Gemini Web 与 AI Studio 共用出口）
 
-新增 **Gemini Web**（`select`，默认选择 `默认代理`）和最多五个独立的 Gemini 地区手动组：`Gemini 美国`、`Gemini 日本`、`Gemini 新加坡`、`Gemini 香港`、`Gemini 台湾`。各地区只使用上游 MyClash 已归类的真实节点，空地区不生成；与原有地区组和 Google、AI、Claude 组相互独立。`GLOBAL` 追加 `Gemini Web` 和实际生成的 Gemini 地区组，已存在的成员不重复添加。不新增监听端口、`fallback`、`url-test`、`load-balance` 或 `hash-key`。
+**组与出口：** `Gemini Web` 是独立 `select` 总入口，默认选择 `默认代理`；最多五个独立手动地区组为 `Gemini 美国`、`Gemini 日本`、`Gemini 新加坡`、`Gemini 香港`、`Gemini 台湾`。只有节点存在时才生成对应地区组；`GLOBAL` 纳入总组和实际生成的地区组，不重复。此版本不添加端口、`url-test`、`fallback` 或 `load-balance`。
 
-**固定出口：** `默认代理` 只是初始选项，可能跟随其他自动组变化，**不保证固定出口**。如需固定节点，应在 `Gemini Web` 中选一个 `Gemini <地区>`，再在该地区组里选择具体节点；固定节点名也不保证公网 IP 永不变化。
+**固定出口：** `默认代理` 可能跟随其他自动组变化；需要固定节点时，请在 `Gemini Web` 中选择地区组，再在地区组里手动选择具体节点。固定节点名不保证公网 IP 永远不变。
 
-**实际规则顺序：** 原 Claude BLOCK 和 Anthropic 规则全部保留；紧接 Claude 最后一条 `PROCESS-NAME,claude.exe,Claude固定出口` 插入 `IN-USER,gemini-01,Gemini Web` 和 `DOMAIN,gemini.google.com,Gemini Web`，随后才是上游 Google、AI 等规则。`accounts.google.com`、`push.clients6.google.com`、`content-push.googleapis.com` 等共享 Google 主机不会被全局划入 Gemini 组。
+**三条规则（位于完整 Claude 块之后、上游 Google/AI 规则之前）：**
 
-**后端连接：** gemini-web2api-go 不读取 `HTTP(S)_PROXY` 环境变量；请在反代后端的**代理池**中填写 `http://gemini-01:x@127.0.0.1:7890`。用户名只是 `IN-USER` 路由标签，**不是认证身份**；原有 `allow-lan: true` 与 `bind-address: '*'` 保留，局域网客户端也能使用相同标签。`IN-USER` 仅覆盖带代理认证用户名的 HTTP/mixed 入站连接；TUN 接管且不带用户名的连接不会因此匹配。
+```text
+IN-USER,gemini-01/aistudio-01,Gemini Web
+PROCESS-PATH-REGEX,\\(gemini-web2api-go|aistudio2api)\.exe$,Gemini Web
+DOMAIN,gemini.google.com,Gemini Web
+```
 
-**进程兜底默认关闭。** `gemini-route.json` 中 `process_path_regex` 初始为空字符串，不生成 `PROCESS-PATH-REGEX`。只能在 Bettbox 的真实连接日志确认后端进程完整路径后，才可选填锚定、转义后的路径正则，提交并重新生成。进程规则会把该进程访问的**所有目标**（包含非 Google 目标）交给 Gemini Web；JS `new RegExp()` 校验通过不保证 Mihomo 正则语法相容，必须真机验证。不能猜测 Windows 路径。
+Gemini Web 反代后端请在**代理池**填写 `http://gemini-01:x@127.0.0.1:7890`；AIStudio2API 在其**管理页把默认代理设置为** `http://aistudio-01:x@127.0.0.1:7890`。两者的代理用户名仅作 `IN-USER` **分流标签，不是安全认证**。现有 `allow-lan: true`、`bind-address: '*'` 均不修改；局域网客户端也可能提交相同标签。没有把 `accounts.google.com` 或上传、CDN 等共享域名全局接管。
 
-**已知限制：** 账号跨请求出口漂移、请求内部 Cookie 续期不使用已选代理属于反代后端第二阶段问题，P0 不修复。`round-robin` 按连接切换节点，可能破坏后端的同出口要求，因此不采用。本功能不保证避免 Google 风控。
+**进程兜底已配置且被内核接受，但还未实测命中。** 插件 [magpie-gemini-web@17ac5ca 的 `lib/native.mjs:64`](https://github.com/BUKOWSKIREAL/magpie-gemini-web/blob/17ac5ca88e4a7f5e703140bbe3e8bd6a72b7677e/lib/native.mjs#L64) 固定 Windows 名称 `gemini-web2api-go.exe`，[`lib/studio-native.mjs:107`](https://github.com/BUKOWSKIREAL/magpie-gemini-web/blob/17ac5ca88e4a7f5e703140bbe3e8bd6a72b7677e/lib/studio-native.mjs#L107) 固定 `aistudio2api.exe`；**这两个进程名现均已由 Bettbox 真机日志确认**。如果自行下载带版本号文件名的可执行文件，请改回这两个固定文件名，否则当前进程规则可能静默失配。进程规则若命中，会把相关进程访问的**全部目标，包括非 Google 地址**，都交给 Gemini Web；`camoufox.exe` 不在兜底规则内。
 
-#### Bettbox 真机验收（由用户操作）
+**AI Studio 地区：** Google [官方可用地区列表](https://ai.google.dev/gemini-api/docs/available-regions) 不包含香港；两个后端共用总入口时，**不要选 `Gemini 香港`**，也应检查 `默认代理` 是否最终落在香港。固定节点仍需留意出口地区与 IP 实际变化。
 
-1. 复制一份订阅配置进行测试，导入[全量 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js)或[精简 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js)作为**唯一覆写脚本**；验证内核可加载，记录 Bettbox 与 Mihomo 版本。
-2. 在面板确认 `Gemini Web` 和有节点的 Gemini 地区组可见，初始为 `默认代理`；在地区组内选择具体节点。
-3. 后端代理池填写 `http://gemini-01:x@127.0.0.1:7890` 并发送一次对话；从连接日志或 `127.0.0.1:9090` 的 connections 接口确认 `IN-USER` 命中，出口链为 `Gemini Web → 地区组 → 具体节点`。
-4. 验证浏览器访问 `accounts.google.com` 仍使用原 Google 组，`gemini.google.com` 匹配 Gemini 专用 DOMAIN 规则，Claude Code 仍使用 `Claude固定出口`。**步骤 1–4 全通过即为 P0 真机通过。**
-5. 查找新账号首次 Cookie 续期等**不带 IN-USER** 的连接，记录是否能识别到真实后端进程路径；识别不到则保持「进程兜底未启用」。
-6. （可选）确认完整路径后，才配置 `process_path_regex`，等待重新生成并复测 `PROCESS-PATH-REGEX`；注意正则锚定和反斜杠、点号转义。
-7. 记录同账号连续请求的实际出口节点，供后端第二阶段使用；此项不作为 P0 通过条件。
+**用户提供的 Bettbox 真机验收：** 两后端均通过 `InUser(gemini-01/aistudio-01)` 命中 Gemini Web：`aistudio2api.exe` 访问 `alkalimakersuite-pa.clients6.google.com`，`gemini-web2api-go.exe` 访问 `gemini.google.com`；实际代理链为 **`Gemini Web → Gemini 台湾 → 2-台湾-住宅`**。Mihomo 已接受 `PROCESS-PATH-REGEX` 配置，**但因两后端均携带代理用户名，尚未观察到进程兜底规则实际命中**；不能将这项记为通过。
 
-简明说明见 [Gemini-README.md](./Gemini-README.md)。
+**其他限制：** `round-robin` 不适合连接内要求稳定出口的后端。账号跨请求或 Cookie 续期可能改变真实出口，仍属后端修复范围；不保证规避 Google 风控。
 
+#### Bettbox 复核步骤
+
+1. 选择本仓库的 [全量 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js) 或 [精简 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js) 作为**唯一**覆写脚本，确认内核加载。
+2. 在 `Gemini Web` 下手动选择地区组及实际节点（AI Studio 不使用香港）；配置两个后端分别使用 `gemini-01`、`aistudio-01` 标签。
+3. 在 Bettbox 连接日志核查两后端的 `InUser`、真实出口与域名匹配；`aistudio2api.exe` 已有真机进程名证据。
+4. 如需验证兜底，必须另外制造**无 `IN-USER` 标签**的后端连接并确认规则显示 `PROCESS-PATH-REGEX`；仅确认内核接受规则不代表兜底命中。
+5. 检查浏览器共享 Google 域名与 Claude 分流没有意外改变；此前 Claude 分流未单独进行真机验证，静态测试提供覆盖。
+
+更简明说明见 [Gemini-README.md](./Gemini-README.md)。
 
 ### Bettbox 中看不到 `Claude固定出口`？
 
