@@ -8,7 +8,7 @@ const expectedGeminiRules=[
   'DOMAIN,gemini.google.com,Gemini Web',
   'DOMAIN,gemini.gstatic.com,Gemini Web',
 ];
-const sharedOrder=['美国','日本','新加坡','台湾','其他节点'];
+const sharedOrder=['手动选择','美国','日本','新加坡','台湾','其他节点'];
 const names=['🇺🇸 US 01','美国 02','🇯🇵 JP 01','日本 02','🇸🇬 SG 01','新加坡 02','🇭🇰 HK 01','香港 02','🇹🇼 TW 01','台湾 02','Mystery 01'];
 const node=(name,i,type='ss')=>({name,type,server:'node'+i+'.example.net',port:443,cipher:'aes-128-gcm',password:'test'});
 const sample={proxies:[...names.map((n,i)=>node(n,i)),node('🇺🇸 US DIRECT',50,'direct')],dns:{}};
@@ -137,11 +137,19 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   });
   check(file+'/only US edge',()=>{
     const g=api.main({proxies:[node('🇺🇸 US 01',1),node('美国 02',2)],dns:{}})['proxy-groups'];
-    assert.deepEqual(plain(g.find(x=>x.name==='Gemini Web').proxies),['默认代理','美国']);
+    assert.deepEqual(plain(g.find(x=>x.name==='Gemini Web').proxies),['默认代理','手动选择','美国']);
   });
   check(file+'/only nonregional edge',()=>{
     const g=api.main({proxies:[node('Mystery 01',1)],dns:{}})['proxy-groups'];
-    assert.deepEqual(plain(g.find(x=>x.name==='Gemini Web').proxies),['默认代理','其他节点']);
+    assert.deepEqual(plain(g.find(x=>x.name==='Gemini Web').proxies),['默认代理','手动选择','其他节点']);
+  });
+  check(file+'/manual selection disabled skips missing upstream group',()=>{
+    assert.equal((source.match(/手动选择:\s*true/g)||[]).length,1);
+    const disabled=load(source.replace(/手动选择:\s*true/,()=> '手动选择: false'))
+      .main(structuredClone(sample))['proxy-groups'];
+    const expected=['默认代理',...sharedOrder.filter(name=>name!=='手动选择'&&disabled.some(g=>g.name===name&&Array.isArray(g.proxies)&&g.proxies.length>0))];
+    assert.ok(!disabled.some(g=>g.name==='手动选择'));
+    assert.deepEqual(plain(disabled.find(g=>g.name==='Gemini Web').proxies),expected);
   });
   check(file+'/minimal mode only default',()=>{
     assert.equal((source.match(/极简模式:\s*false/g)||[]).length,1);
