@@ -16,9 +16,12 @@ function claudeOnly(s){
   const marker='// Gemini Web P0 add-on (generated)';
   assert.equal(s.split(marker).length,2,'One Gemini suffix required');
   const head=s.split(marker)[0];
-  const block=/^\s*\/\/ BEGIN MyClash-A- Gemini routing \(generated\)[\s\S]*?\/\/ END MyClash-A- Gemini routing\s*$/gm;
+  const block=/^  \/\/ BEGIN MyClash-A- Gemini routing \(generated\)[\s\S]*?^  \/\/ END MyClash-A- Gemini routing[ \t]*\r?\n/gm;
   assert.equal((head.match(block)||[]).length,1,'One Gemini injection required');
-  return head.replace(block,'');
+  const restored=head.replace(block,'');
+  assert.match(restored,/^  \/\/ END MyClash-A- Claude routing\r?\n  return newConfig;[ \t]*$/m,
+    'Claude END must be immediately followed by return newConfig with no blank line');
+  return restored;
 }
 check('parse/accept default',()=>assert.deepEqual(parseGeminiConfig({in_users:['gemini-01'],process_path_regex:''}),
   {in_users:['gemini-01'],process_path_regex:''}));
