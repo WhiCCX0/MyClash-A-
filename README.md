@@ -15,7 +15,7 @@
 | Sift（`siftscience.com`、`sift.com`）和 GrowthBook（`growthbook.io`） | 与 Claude 采用同一策略组 |
 | Sentry（`sentry.io`） | `REJECT` |
 | Datadog（`datadoghq.com`、`datadoghq.eu` 及含 `datadoghq` 的域名） | `REJECT` |
-| 节点选择 | 首次默认 `REJECT`；须在 Bettbox 内手动选择**具体机场节点**，不使用地区自动组或负载均衡 |
+| Claude 节点选择 | **只显示台湾节点及 `台湾`、`台湾-自动选择` 组**；默认 `REJECT`；没有台湾节点则保持拒绝连接，不回退到其他地区 |
 | 每日自动同步 | GitHub Actions 每天 **03:23 UTC（北京时间 11:23）** 检查上游，基于同一上游提交重建全量版与精简版 |
 | 构建失败 | 不发布新脚本，保留上次成功版本 |
 | 其他 MyClash 功能 | 保留上游 JS 的主要实现和 Bettbox 开关；仅在生成的最终配置中叠加 Claude 规则 |
@@ -45,15 +45,17 @@
 | **全量版（推荐）** | [`Script/mihomoScript.js`](./Script/mihomoScript.js) | [复制/打开全量版](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js) |
 | **精简版** | [`Script/Script.js`](./Script/Script.js) | [复制/打开精简版](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js) |
 
-**使用步骤：** 在 Bettbox 中复制原配置用于测试 → 将其中一条 Raw 链接作为**唯一**覆写脚本 → 应用配置 → 在 `Claude固定出口` 组手动选择一个真实节点 → 检查连接日志。不要同时启用上游 MyClash 或 one-exit 作为第二份覆写。
+**使用步骤：** 在 Bettbox 中复制原配置用于测试 → 将其中一条 Raw 链接作为**唯一**覆写脚本 → 应用配置 → 在 `Claude固定出口` 组选择台湾具体节点（或台湾地区组）→ 检查连接日志。不要同时启用上游 MyClash 或 one-exit 作为第二份覆写。
 
-若要在构建时强制绑定一个具体节点，可编辑 [`claude-route.json`](./claude-route.json) 的 `node_name`（填写**MyClash 标准化后的完整节点名称**）；该节点不再存在时，构建出的组仅保留 `REJECT`，不会回退直连。留空表示在 Bettbox 内手动选择。
+**地区分组保持上游原样：不会创建任何 `fallback`／`故障转移` 组。** `台湾-自动选择` 是 `url-test`，可能在台湾节点间自动切换，若需要稳定使用某一节点，应选具体台湾节点。
+
+若要在构建时强制绑定一个具体节点，可编辑 [`claude-route.json`](./claude-route.json) 的 `node_name`（填写**MyClash 标准化后的台湾具体节点全名**；非台湾节点会被拒绝）；该节点不再存在时，构建出的组仅保留 `REJECT`，不会回退直连。留空表示在 Bettbox 内手动选择。
 
 ### Bettbox 中看不到 `Claude固定出口`？
 
 1. **机场订阅与脚本覆写是不同入口**：请先正常导入机场节点订阅，再到 Bettbox 的脚本覆写页面绑定本 Fork 的全量或精简 **JS Raw 地址**；不要将 JS 当成机场订阅 YAML 导入。
 2. 更新或重新下载脚本覆写，保存并确认它确实对**当前选中的机场订阅**启用；再刷新订阅并重新加载 Mihomo 配置。
-3. 本 Fork 的 `Claude固定出口` 现在紧跟在 `默认代理` 之后，同时列入 `GLOBAL` 可选组。出现后须手动选择具体节点；初始为 `REJECT`。
+3. 本 Fork 的 `Claude固定出口` 现在紧跟在 `默认代理` 之后，同时列入 `GLOBAL` 可选组。出现后选择台湾节点或台湾组；初始为 `REJECT`。
 4. 仍未出现时，请检查 Bettbox 的脚本执行错误和内核配置加载日志：如果报错或仍引用 `AIsouler/MyClash` 的原版地址，说明新版覆写尚未生效。分享截图前遮挡私人订阅 URL 和节点凭据。
 
 ### 上游同步与维护
