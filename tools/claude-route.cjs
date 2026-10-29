@@ -45,13 +45,17 @@ const ROUTE=[
 'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
 'DOMAIN,anthropic.auth0.com,Claude固定出口',
 'DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口',
+// Anthropic-branded Ghost CMS host; use exact hostname, not the shared ghost.io suffix.
+'DOMAIN,anthropic-com.ghost.io,Claude固定出口',
 'DOMAIN-SUFFIX,siftscience.com,Claude固定出口',
 'DOMAIN-SUFFIX,sift.com,Claude固定出口',
 'DOMAIN-SUFFIX,growthbook.io,Claude固定出口',
 'IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve',
 'IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve',
 'IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve',
-'IP-ASN,399358,Claude固定出口,no-resolve'
+'IP-ASN,399358,Claude固定出口,no-resolve',
+// Windows native Claude Code catch-all. Applies only if Mihomo identifies the process.
+'PROCESS-NAME,claude.exe,Claude固定出口'
 ];
 function addClaudeRoute(config,pinnedNode,anthropicRules){
 if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
