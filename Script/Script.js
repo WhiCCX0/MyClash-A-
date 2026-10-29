@@ -880,6 +880,7 @@ const commonDnsList = [
 
   // 腾讯 DNSPod（腾讯云）
   '119.29.29.29',
+  '119.28.28.28',
   '182.254.116.116',
   '1.12.12.12',
   '120.53.53.53',
@@ -1425,7 +1426,7 @@ const PROVIDER="myclash_claude_anthropic";
 const PROVIDER_URL="https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs";
 const ANTHROPIC_RULES=["DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口","DOMAIN-SUFFIX,ant.dev,Claude固定出口","DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,anthropic.team,Claude固定出口","DOMAIN-SUFFIX,antspace.dev,Claude固定出口","DOMAIN-SUFFIX,chatbotclaude.com,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.app,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,claude.new,Claude固定出口","DOMAIN-SUFFIX,claude.site,Claude固定出口","DOMAIN-SUFFIX,claudeacademy.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpclient.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN-SUFFIX,claudepages.dev,Claude固定出口","DOMAIN-SUFFIX,claudestudio.com,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口"];
 const BLOCK=["DOMAIN-SUFFIX,sentry.io,REJECT","DOMAIN-SUFFIX,datadoghq.com,REJECT","DOMAIN-SUFFIX,datadoghq.eu,REJECT","DOMAIN-KEYWORD,datadoghq,REJECT"];
-const ROUTE=["DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN,anthropic.auth0.com,Claude固定出口","DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口","DOMAIN-SUFFIX,siftscience.com,Claude固定出口","DOMAIN-SUFFIX,sift.com,Claude固定出口","DOMAIN-SUFFIX,growthbook.io,Claude固定出口","IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve","IP-ASN,399358,Claude固定出口,no-resolve"];
+const ROUTE=["DOMAIN-SUFFIX,anthropic.com,Claude固定出口","DOMAIN-SUFFIX,claude.ai,Claude固定出口","DOMAIN-SUFFIX,claude.com,Claude固定出口","DOMAIN-SUFFIX,claude.dev,Claude固定出口","DOMAIN-SUFFIX,clau.de,Claude固定出口","DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口","DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口","DOMAIN,anthropic.auth0.com,Claude固定出口","DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口","DOMAIN,anthropic-com.ghost.io,Claude固定出口","DOMAIN-SUFFIX,siftscience.com,Claude固定出口","DOMAIN-SUFFIX,sift.com,Claude固定出口","DOMAIN-SUFFIX,growthbook.io,Claude固定出口","IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve","IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve","IP-ASN,399358,Claude固定出口,no-resolve","PROCESS-NAME,claude.exe,Claude固定出口"];
 function addClaudeRoute(config,pinnedNode,anthropicRules){
 if(!Array.isArray(anthropicRules)||anthropicRules.length<15||
 !anthropicRules.every(r=>typeof r==='string'&&r.endsWith(',Claude固定出口')))
