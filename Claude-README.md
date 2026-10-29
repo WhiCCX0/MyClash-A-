@@ -1,9 +1,11 @@
 # Claude 固定出口与每日上游同步
-- 原始上游：AIsouler/MyClash；每日 03:23 UTC 更新，全量与精简脚本使用同一上游 SHA。
+- 原始上游：AIsouler/MyClash；每日 03:23 UTC 更新，两份脚本使用同一 MyClash 上游 SHA，同时获取最新 Anthropic 域名清单；不认识的域名条目格式会让构建失败而非静默跳过。
 - 全量 Raw：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js
 - 精简 Raw：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
 - Sentry 与 Datadog → REJECT（全局规则，可能影响其他软件）。
-- Claude、Anthropic、Sift、GrowthBook → Claude固定出口。
+- Claude / Anthropic：每天从 `v2fly/domain-list-community/data/anthropic` 拉取全量域名，生成显式规则；另使用 MetaCubeX 的 `anthropic.mrs`（24 小时刷新）补充新域名。**两层规则都排在原版 AI 分组之前**。
+- 上游 `category-ai-!cn` 数据集仍包含 Anthropic，但由于优先命中 Claude 规则，实际流量不会再按普通 AI 分流。对完全未知、尚未收录的域名无法保证。
+- Sift、GrowthBook → Claude固定出口。
 - 初始策略组默认为 REJECT。必须在 Bettbox 中选择一个真实节点，且不选自动或地区组；MyClash 会尝试保存选择。
 - 若希望硬固定节点，可在 claude-route.json 中填写 MyClash 标准化后的完整节点名；节点消失会拒绝连接，不自动切换。
 - 固定节点名不代表固定公网 IP，也不能保证完全没有代理绕过，更无法保证不会被封号。
