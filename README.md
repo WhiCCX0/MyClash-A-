@@ -9,7 +9,7 @@
 
 | 修改项目 | 本 Fork 行为 |
 | --- | --- |
-| Claude / Anthropic API 及部分登录、内容域名 | 进入独立的 **Claude固定出口** 策略组 |
+| **Claude / Anthropic 完整域名分流** | 每日读取 [domain-list-community 的 Anthropic 域名清单](https://github.com/v2fly/domain-list-community/blob/master/data/anthropic)，生成逐域名优先规则；并加载 [MetaCubeX 的 `anthropic.mrs`](https://github.com/MetaCubeX/meta-rules-dat/tree/meta) 自动更新规则集，均指向 **Claude固定出口** |
 | Sift（`siftscience.com`、`sift.com`）和 GrowthBook（`growthbook.io`） | 与 Claude 采用同一策略组 |
 | Sentry（`sentry.io`） | `REJECT` |
 | Datadog（`datadoghq.com`、`datadoghq.eu` 及含 `datadoghq` 的域名） | `REJECT` |
@@ -18,6 +18,11 @@
 | 构建失败 | 不发布新脚本，保留上次成功版本 |
 | 其他 MyClash 功能 | 保留上游 JS 的主要实现和 Bettbox 开关；仅在生成的最终配置中叠加 Claude 规则 |
 
+> [!NOTE]
+> **Claude 与 AI 的匹配优先级：** 上游 `category-ai-!cn` 数据集仍包含 Anthropic 域名（未篡改原版数据），但本 Fork 的**完整 Claude 域名规则与 `anthropic.mrs` 先于 `RULE-SET,ai,AI` 匹配**。因此已知 Anthropic 域名会实际进入 `Claude固定出口`，而不是 AI。未来新增域名取决于域名清单及规则集是否及时更新；无法对未知域名作绝对保证。
+>
+> 如果维护中的域名清单出现构建器不支持的新语法，GitHub Actions 会中止发布，避免静默遗漏。Sentry/Datadog 仍按既有规则优先阻断。
+>
 > [!IMPORTANT]
 > - **Sentry 和 Datadog 为全局域名阻断规则**，会影响其他使用相同域名的软件，不仅限 Claude。
 > - 阻断部分遥测不能保证不出现直连；请在 Bettbox 检查 TUN 实际状态和连接日志。固定节点名称也**不等于固定公网 IP**。
