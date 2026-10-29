@@ -67,7 +67,7 @@
 
 #### Bettbox 真机验收（由用户操作）
 
-1. 复制一份订阅配置进行测试，导入[此分支全量 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/feat/gemini-web-p0/Script/mihomoScript.js)或[精简 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/feat/gemini-web-p0/Script/Script.js)作为**唯一覆写脚本**；验证内核可加载，记录 Bettbox 与 Mihomo 版本。
+1. 复制一份订阅配置进行测试，导入[全量 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js)或[精简 Raw](https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js)作为**唯一覆写脚本**；验证内核可加载，记录 Bettbox 与 Mihomo 版本。
 2. 在面板确认 `Gemini Web` 和有节点的 Gemini 地区组可见，初始为 `默认代理`；在地区组内选择具体节点。
 3. 后端代理池填写 `http://gemini-01:x@127.0.0.1:7890` 并发送一次对话；从连接日志或 `127.0.0.1:9090` 的 connections 接口确认 `IN-USER` 命中，出口链为 `Gemini Web → 地区组 → 具体节点`。
 4. 验证浏览器访问 `accounts.google.com` 仍使用原 Google 组，`gemini.google.com` 匹配 Gemini 专用 DOMAIN 规则，Claude Code 仍使用 `Claude固定出口`。**步骤 1–4 全通过即为 P0 真机通过。**
@@ -75,7 +75,7 @@
 6. （可选）确认完整路径后，才配置 `process_path_regex`，等待重新生成并复测 `PROCESS-PATH-REGEX`；注意正则锚定和反斜杠、点号转义。
 7. 记录同账号连续请求的实际出口节点，供后端第二阶段使用；此项不作为 P0 通过条件。
 
-简明说明见 [Gemini-README.md](./Gemini-README.md)。在本 PR 合并前，`main` 的 Raw 链接仍是旧版，不含 Gemini P0。
+简明说明见 [Gemini-README.md](./Gemini-README.md)。
 
 
 ### Bettbox 中看不到 `Claude固定出口`？
