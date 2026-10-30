@@ -77,18 +77,34 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: myclash-generated-scripts
-          path: Script
+          path: generated
       - name: Commit verified scripts only if changed
         run: |
-          git diff --check
-          test -f Script/Script.js && test -f Script/mihomoScript.js
-          test ! -e Script.js && test ! -e mihomoScript.js
-          git add Script/mihomoScript.js Script/Script.js
-          if ! git diff --cached --quiet; then
-            git config user.name 'github-actions[bot]'
-            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            echo "Publish attempt ${attempt}/3"
+            git fetch origin main
+            git reset --hard origin/main
+            cp generated/Script.js Script/Script.js
+            cp generated/mihomoScript.js Script/mihomoScript.js
+            test -f Script/Script.js && test -f Script/mihomoScript.js
+            test ! -e Script.js && test ! -e mihomoScript.js
+            git diff --check
+            git add Script/Script.js Script/mihomoScript.js
+            if git diff --cached --quiet; then
+              echo 'No generated script changes'
+              exit 0
+            fi
             git commit -m "chore: sync MyClash upstream with Claude and Gemini routes"
-            git push origin HEAD:main
-          else
-            echo 'No generated script changes'
-          fi
+            if git push origin HEAD:main; then
+              echo "Published scripts on attempt ${attempt}/3"
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Push failed on attempt ${attempt}/3; retrying in 5 seconds"
+              sleep 5
+            fi
+          done
+          echo 'Failed to publish verified scripts after 3 attempts' >&2
+          exit 1
