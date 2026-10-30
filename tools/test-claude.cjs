@@ -41,7 +41,8 @@ const sample={proxies:[
 ],dns:{}};
 const pinned=JSON.parse(fs.readFileSync('claude-route.json','utf8')).node_name;
 for(const file of ['Script/mihomoScript.js','Script/Script.js']){
-const main=vm.runInNewContext(fs.readFileSync(file,'utf8')+'\nmain',{},{timeout:5000});
+const source=fs.readFileSync(file,'utf8');
+const main=vm.runInNewContext(source+'\nmain',{},{timeout:5000});
 const cfg=main(structuredClone(sample));
 const g=cfg['proxy-groups'].find(x=>x.name==='Claude固定出口');
 assert.ok(g);assert.equal(g.type,'select');
