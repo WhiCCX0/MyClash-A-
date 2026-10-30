@@ -42,7 +42,7 @@ jobs:
           node-version: '24'
 
       - name: install tools
-        run: npm install -g prettier
+        run: npm install -g prettier@3
 
       - name: format files
         run: |

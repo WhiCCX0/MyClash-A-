@@ -1,7 +1,6 @@
 'use strict';
 // Maintained Claude domains: v2fly/domain-list-community data/anthropic.
 const PROVIDER = 'myclash_claude_anthropic';
-const PROVIDER_URL = 'https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs';
 function parseAnthropicSource(source) {
   if (typeof source !== 'string' || !source.trim()) throw Error('Empty Anthropic source');
   const entries = new Set();
@@ -78,12 +77,14 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
     throw Error('Missing generated Anthropic domain rules');
   if (!config['rule-providers'] || config['rule-providers'][PROVIDER])
     throw Error('Anthropic provider collision or missing providers');
+  if (typeof ruleSetBaseUrl === 'undefined' || typeof ruleSetBaseUrl !== 'string')
+    throw Error('Claude route requires upstream ruleSetBaseUrl string');
   config['rule-providers'][PROVIDER] = {
     type: 'http',
     format: 'mrs',
     behavior: 'domain',
     interval: 86400,
-    url: PROVIDER_URL,
+    url: ruleSetBaseUrl + 'geosite/anthropic.mrs',
     path: './ruleset/myclash_claude_anthropic.mrs',
     'path-in-bundle': 'geo/geosite/anthropic.mrs',
   };
@@ -167,9 +168,6 @@ function patch(source, pinnedNode = '', anthropicRules) {
     '\n// Shared add-on: upstream MyClash code is otherwise unchanged.\n' +
     'const PROVIDER=' +
     JSON.stringify(PROVIDER) +
-    ';\n' +
-    'const PROVIDER_URL=' +
-    JSON.stringify(PROVIDER_URL) +
     ';\n' +
     'const ANTHROPIC_RULES=' +
     JSON.stringify(anthropicRules) +
