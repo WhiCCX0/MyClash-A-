@@ -1,8 +1,11 @@
 /**
- * mihomo配置覆写脚本（精简版）
- * 作者：AIsouler
- * 源仓库：https://github.com/AIsouler/MyClash
- * 脚本链接：https://raw.githubusercontent.com/AIsouler/MyClash/main/Script/Script.js
+ * mihomo配置覆写脚本（精简版）· MyClash-A- 定制版
+ * 原作者：AIsouler（MIT License）
+ * 上游仓库：https://github.com/AIsouler/MyClash
+ * 本仓库：https://github.com/WhiCCX0/MyClash-A-
+ * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
+ * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
+ * 构建基于上游提交：9ae100c4c23fb492a2b05934f1983a452eabe85e
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
