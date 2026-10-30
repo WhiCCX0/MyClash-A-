@@ -40,7 +40,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Format generated scripts
         run: |
-          npm install -g prettier
+          npm install -g prettier@3
           prettier --write Script/mihomoScript.js Script/Script.js
       - name: Check generated scripts and routing tests
         run: |
