@@ -3,6 +3,7 @@ const fs = require('node:fs'),
   vm = require('node:vm'),
   assert = require('node:assert/strict');
 const { patch, parseAnthropicSource } = require('./claude-route.cjs');
+const { applyForkHeader } = require('./sync-upstream.cjs');
 const anthropicFixture = [
   '# canonical list',
   'anthropic.com',
@@ -72,8 +73,33 @@ const sample = {
   dns: {},
 };
 const pinned = JSON.parse(fs.readFileSync('claude-route.json', 'utf8')).node_name;
+const fallbackSha = '0123456789abcdef0123456789abcdef01234567';
+const unusualHeader = '/**\n * Unexpected upstream header\n */';
+const preservedSource = unusualHeader + '\nconst originalCode = 1;\n';
+const fallback = applyForkHeader(preservedSource, 'Script/Script.js', fallbackSha);
+assert.ok(fallback.startsWith(unusualHeader + '\n\n/**\n'), 'Must preserve an unrecognized upstream comment');
+assert.ok(fallback.endsWith('\nconst originalCode = 1;\n'), 'Must preserve original source code');
+for (const expected of [
+  ' * 本仓库：https://github.com/WhiCCX0/MyClash-A-',
+  ' * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js',
+  ' * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）',
+  ' * 构建基于上游提交：' + fallbackSha,
+]) assert.ok(fallback.includes(expected), 'Fallback missing: ' + expected);
+
 for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   const source = fs.readFileSync(file, 'utf8');
+  const firstComment = source.match(/^\/\*\*[\s\S]*?\*\//);
+  assert.ok(firstComment, file + ': missing generated file header');
+  const banner = firstComment[0];
+  const lite = file === 'Script/Script.js';
+  const version = lite ? '精简版' : '全量版';
+  const filename = lite ? 'Script.js' : 'mihomoScript.js';
+  assert.ok(banner.includes('mihomo配置覆写脚本（' + version + '）· MyClash-A- 定制版'));
+  assert.ok(banner.includes('原作者：AIsouler（MIT License）'));
+  assert.ok(banner.includes('本仓库：https://github.com/WhiCCX0/MyClash-A-'));
+  assert.ok(banner.includes('脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/' + filename));
+  assert.match(banner, /构建基于上游提交：[a-f0-9]{40}/);
+  assert.ok(!source.includes('raw.githubusercontent.com/AIsouler/MyClash'), file + ': stale upstream Raw link');
   const main = vm.runInNewContext(source + '\nmain', {}, { timeout: 5000 });
   const cfg = main(structuredClone(sample));
   const g = cfg['proxy-groups'].find((x) => x.name === 'Claude固定出口');
