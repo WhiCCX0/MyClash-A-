@@ -20,6 +20,41 @@ async function get(url) {
     }
   }
 }
+// Replace only the recognizable upstream banner; preserve unknown upstream headers.
+function applyForkHeader(source, file, upstreamSha) {
+  const versions = {
+    'Script/Script.js': ['精简版', 'Script.js'],
+    'Script/mihomoScript.js': ['全量版', 'mihomoScript.js'],
+  };
+  const entry = versions[file];
+  if (!entry || !/^[a-f0-9]{40}$/.test(upstreamSha)) throw Error('Invalid fork header build input');
+  const [version, filename] = entry;
+  const forkLines = [
+    ' * 本仓库：https://github.com/WhiCCX0/MyClash-A-',
+    ' * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/' + filename,
+    ' * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）',
+    ' * 构建基于上游提交：' + upstreamSha,
+  ];
+  const header = [
+    '/**',
+    ' * mihomo配置覆写脚本（' + version + '）· MyClash-A- 定制版',
+    ' * 原作者：AIsouler（MIT License）',
+    ' * 上游仓库：https://github.com/AIsouler/MyClash',
+    ...forkLines,
+    ' * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox',
+    ' */',
+  ].join('\n');
+  const first = source.match(/^\/\*\*[\s\S]*?\*\//);
+  if (first && first[0].includes('mihomo配置覆写脚本') && first[0].includes('AIsouler')) {
+    return header + source.slice(first[0].length);
+  }
+  // Unknown upstream layout: retain the original comment, append a separate fork block.
+  const originalComment = source.match(/^\/\*[\s\S]*?\*\//) || source.match(/^(?:\/\/[^\r\n]*(?:\r?\n|$))+/);
+  const offset = originalComment ? originalComment[0].length : 0;
+  const forkBlock = ['/**', ...forkLines, ' */'].join('\n');
+  console.warn('WARNING: Unrecognized MyClash upstream header in ' + file + '; preserving original comment');
+  return source.slice(0, offset) + (offset ? '\n\n' : '') + forkBlock + '\n' + source.slice(offset);
+}
 async function main() {
   const cfg = JSON.parse(fs.readFileSync('claude-route.json', 'utf8'));
   const geminiCfg = parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json', 'utf8')));
@@ -36,14 +71,17 @@ async function main() {
   const generated = {};
   for (const file of files) {
     const source = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
-    generated[file] = patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg);
+    generated[file] = applyForkHeader(patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg), file, meta.sha);
   }
   for (const file of files) {
     fs.writeFileSync(file, generated[file]);
     console.log(file + ' built at ' + meta.sha);
   }
 }
-main().catch((e) => {
-  console.error(e);
-  process.exitCode = 1;
-});
+module.exports = { applyForkHeader };
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e);
+    process.exitCode = 1;
+  });
+}
