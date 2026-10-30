@@ -1,38 +1,49 @@
 'use strict';
-const fs=require('node:fs');
-const {patch,parseAnthropicSource}=require('./claude-route.cjs');
-const {parseGeminiConfig,patchGemini}=require('./gemini-route.cjs');
-const files=['Script/mihomoScript.js','Script/Script.js'];
-async function get(url){
-  for(let i=0;i<3;i++){
+const fs = require('node:fs');
+const { patch, parseAnthropicSource } = require('./claude-route.cjs');
+const { parseGeminiConfig, patchGemini } = require('./gemini-route.cjs');
+const files = ['Script/mihomoScript.js', 'Script/Script.js'];
+async function get(url) {
+  for (let i = 0; i < 3; i++) {
     try {
-      const headers={'User-Agent':'MyClash-A-Sync'};
-      if(new URL(url).hostname==='api.github.com'){
-        headers.Accept='application/vnd.github+json';
-        if(process.env.GITHUB_TOKEN)headers.Authorization='Bearer '+process.env.GITHUB_TOKEN;
+      const headers = { 'User-Agent': 'MyClash-A-Sync' };
+      if (new URL(url).hostname === 'api.github.com') {
+        headers.Accept = 'application/vnd.github+json';
+        if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
       }
-      const r=await fetch(url,{headers,signal:AbortSignal.timeout(30000)});
-      if(!r.ok)throw Error(url+' HTTP '+r.status);
+      const r = await fetch(url, { headers, signal: AbortSignal.timeout(30000) });
+      if (!r.ok) throw Error(url + ' HTTP ' + r.status);
       return await r.text();
-    } catch(e) {if(i===2)throw e;await new Promise(res=>setTimeout(res,1000*(i+1)));}
+    } catch (e) {
+      if (i === 2) throw e;
+      await new Promise((res) => setTimeout(res, 1000 * (i + 1)));
+    }
   }
 }
-async function main(){
-const cfg=JSON.parse(fs.readFileSync('claude-route.json','utf8'));
-const geminiCfg=parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json','utf8')));
-if(typeof cfg.node_name!=='string')throw Error('node_name must be string');
-const meta=JSON.parse(await get('https://api.github.com/repos/AIsouler/MyClash/commits/main'));
-if(!/^[a-f0-9]{40}$/.test(meta.sha))throw Error('Invalid upstream SHA');
-// Pull the complete maintained Anthropic domain source for every daily build.
-// The parser fails closed if upstream introduces an unsupported directive.
-const anthropicSource=await get('https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/anthropic');
-const anthropicRules=parseAnthropicSource(anthropicSource);
-console.log('Anthropic canonical rules: '+anthropicRules.length);
-const generated={};
-for(const file of files){
-const source=await get('https://raw.githubusercontent.com/AIsouler/MyClash/'+meta.sha+'/'+file);
-generated[file]=patchGemini(patch(source,cfg.node_name,anthropicRules),geminiCfg);
+async function main() {
+  const cfg = JSON.parse(fs.readFileSync('claude-route.json', 'utf8'));
+  const geminiCfg = parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json', 'utf8')));
+  if (typeof cfg.node_name !== 'string') throw Error('node_name must be string');
+  const meta = JSON.parse(await get('https://api.github.com/repos/AIsouler/MyClash/commits/main'));
+  if (!/^[a-f0-9]{40}$/.test(meta.sha)) throw Error('Invalid upstream SHA');
+  // Pull the complete maintained Anthropic domain source for every daily build.
+  // The parser fails closed if upstream introduces an unsupported directive.
+  const anthropicSource = await get(
+    'https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/anthropic',
+  );
+  const anthropicRules = parseAnthropicSource(anthropicSource);
+  console.log('Anthropic canonical rules: ' + anthropicRules.length);
+  const generated = {};
+  for (const file of files) {
+    const source = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
+    generated[file] = patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg);
+  }
+  for (const file of files) {
+    fs.writeFileSync(file, generated[file]);
+    console.log(file + ' built at ' + meta.sha);
+  }
 }
-for(const file of files){fs.writeFileSync(file,generated[file]);console.log(file+' built at '+meta.sha);}
-}
-main().catch(e=>{console.error(e);process.exitCode=1;});
+main().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

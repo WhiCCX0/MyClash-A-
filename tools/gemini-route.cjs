@@ -7,7 +7,7 @@ function parseGeminiConfig(obj) {
     throw Error('Gemini config must be a JSON object');
   }
   const keys = Object.keys(obj);
-  if (keys.length !== 2 || keys.some(k => k !== 'in_users' && k !== 'process_path_regex')) {
+  if (keys.length !== 2 || keys.some((k) => k !== 'in_users' && k !== 'process_path_regex')) {
     throw Error('Gemini config must contain only in_users and process_path_regex');
   }
   if (!Array.isArray(obj.in_users) || obj.in_users.length < 1 || obj.in_users.length > 8) {
@@ -31,31 +31,42 @@ function parseGeminiConfig(obj) {
     }
     // Go RE2 supports leading inline flags (e.g. (?i), (?s)); JavaScript does not.
     const jsRegex = regex.replace(/^(?:\(\?[imsU-]+\))+/, () => '');
-    try { new RegExp(jsRegex); } catch (e) { throw Error('Invalid Gemini process regex: ' + e.message); }
+    try {
+      new RegExp(jsRegex);
+    } catch (e) {
+      throw Error('Invalid Gemini process regex: ' + e.message);
+    }
   }
-  return {in_users: [...obj.in_users], process_path_regex: regex};
+  return { in_users: [...obj.in_users], process_path_regex: regex };
 }
 
 // Runtime: refs to upstream MyClash internals are intentional and guarded.
 function addGeminiRoute(config, cfg) {
-  if (typeof selectBaseOption === 'undefined' || !selectBaseOption ||
-      typeof selectBaseOption !== 'object' ||
-      typeof iconBaseUrl !== 'string') {
+  if (
+    typeof selectBaseOption === 'undefined' ||
+    !selectBaseOption ||
+    typeof selectBaseOption !== 'object' ||
+    typeof iconBaseUrl !== 'string'
+  ) {
     throw Error('Gemini route requires upstream selectBaseOption and iconBaseUrl');
   }
-  if (!config || !Array.isArray(config.proxies) ||
-      !Array.isArray(config['proxy-groups']) || !Array.isArray(config.rules)) {
+  if (
+    !config ||
+    !Array.isArray(config.proxies) ||
+    !Array.isArray(config['proxy-groups']) ||
+    !Array.isArray(config.rules)
+  ) {
     throw Error('Missing MyClash Gemini input arrays');
   }
-  if (!Array.isArray(cfg.in_users) || !cfg.in_users.length ||
-      typeof cfg.process_path_regex !== 'string') {
+  if (!Array.isArray(cfg.in_users) || !cfg.in_users.length || typeof cfg.process_path_regex !== 'string') {
     throw Error('Missing validated GEMINI_CONFIG');
   }
   const groups = config['proxy-groups'];
-  const namedGroups = groups.filter(g => g && typeof g.name === 'string' && g.name);
-  const names = new Set(namedGroups.map(g => g.name));
-  const existingProxies = new Set(config.proxies.filter(p => p && typeof p.name === 'string' && p.name)
-    .map(p => p.name));
+  const namedGroups = groups.filter((g) => g && typeof g.name === 'string' && g.name);
+  const names = new Set(namedGroups.map((g) => g.name));
+  const existingProxies = new Set(
+    config.proxies.filter((p) => p && typeof p.name === 'string' && p.name).map((p) => p.name),
+  );
   const groupName = 'Gemini Web';
   if (names.has(groupName) || existingProxies.has(groupName)) {
     throw Error('Gemini selector name collision');
@@ -63,8 +74,8 @@ function addGeminiRoute(config, cfg) {
   if (!names.has('默认代理')) throw Error('Missing 默认代理 group');
   // Reuse existing upstream groups unchanged; omit absent/lite-mode groups.
   const sharedOrder = ['手动选择', '美国', '日本', '新加坡', '台湾', '其他节点'];
-  const sharedGroups = sharedOrder.filter(name => {
-    const group = namedGroups.find(g => g.name === name);
+  const sharedGroups = sharedOrder.filter((name) => {
+    const group = namedGroups.find((g) => g.name === name);
     return group && Array.isArray(group.proxies) && group.proxies.length > 0;
   });
   const entry = {
@@ -74,11 +85,11 @@ function addGeminiRoute(config, cfg) {
     icon: iconBaseUrl + 'Google.svg',
     hidden: false,
   };
-  const claudeIdx = groups.findIndex(g => g && g.name === 'Claude固定出口');
-  const defaultIdx = groups.findIndex(g => g && g.name === '默认代理');
+  const claudeIdx = groups.findIndex((g) => g && g.name === 'Claude固定出口');
+  const defaultIdx = groups.findIndex((g) => g && g.name === '默认代理');
   const insertion = (claudeIdx >= 0 ? claudeIdx : defaultIdx) + 1;
   groups.splice(insertion, 0, entry);
-  const global = namedGroups.find(g => g.name === 'GLOBAL');
+  const global = namedGroups.find((g) => g.name === 'GLOBAL');
   if (!global || !Array.isArray(global.proxies)) throw Error('Missing GLOBAL group');
   if (!global.proxies.includes(groupName)) global.proxies.push(groupName);
 
@@ -116,13 +127,23 @@ function patchGemini(source, cfg) {
   if (returns.length !== 1) throw Error('Expected one upstream return newConfig');
   const expected = /^  \/\/ END MyClash-A- Claude routing[ \t]*\r?\n(?=  return newConfig;[ \t]*$)/m;
   if (!expected.test(source)) throw Error('Unexpected Claude injection boundary');
-  const added = source.replace(expected, (match) => match +
-    '  // BEGIN MyClash-A- Gemini routing (generated)\n' +
-    '  addGeminiRoute(newConfig, GEMINI_CONFIG);\n' +
-    '  // END MyClash-A- Gemini routing\n');
-  return added + '\n// Gemini Web P0 add-on (generated)\n' +
-    'const GEMINI_CONFIG=' + JSON.stringify(parsed) + ';\n' +
-    addGeminiRoute.toString() + '\n';
+  const added = source.replace(
+    expected,
+    (match) =>
+      match +
+      '  // BEGIN MyClash-A- Gemini routing (generated)\n' +
+      '  addGeminiRoute(newConfig, GEMINI_CONFIG);\n' +
+      '  // END MyClash-A- Gemini routing\n',
+  );
+  return (
+    added +
+    '\n// Gemini Web P0 add-on (generated)\n' +
+    'const GEMINI_CONFIG=' +
+    JSON.stringify(parsed) +
+    ';\n' +
+    addGeminiRoute.toString() +
+    '\n'
+  );
 }
 
-module.exports = {parseGeminiConfig, patchGemini, addGeminiRoute};
+module.exports = { parseGeminiConfig, patchGemini, addGeminiRoute };
