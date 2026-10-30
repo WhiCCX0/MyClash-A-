@@ -1819,7 +1819,6 @@ function main(config) {
 
 // Shared add-on: upstream MyClash code is otherwise unchanged.
 const PROVIDER = 'myclash_claude_anthropic';
-const PROVIDER_URL = 'https://fastly.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@meta/geo/geosite/anthropic.mrs';
 const ANTHROPIC_RULES = [
   'DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口',
   'DOMAIN-SUFFIX,ant.dev,Claude固定出口',
@@ -1876,12 +1875,14 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
     throw Error('Missing generated Anthropic domain rules');
   if (!config['rule-providers'] || config['rule-providers'][PROVIDER])
     throw Error('Anthropic provider collision or missing providers');
+  if (typeof ruleSetBaseUrl === 'undefined' || typeof ruleSetBaseUrl !== 'string')
+    throw Error('Claude route requires upstream ruleSetBaseUrl string');
   config['rule-providers'][PROVIDER] = {
     type: 'http',
     format: 'mrs',
     behavior: 'domain',
     interval: 86400,
-    url: PROVIDER_URL,
+    url: ruleSetBaseUrl + 'geosite/anthropic.mrs',
     path: './ruleset/myclash_claude_anthropic.mrs',
     'path-in-bundle': 'geo/geosite/anthropic.mrs',
   };
