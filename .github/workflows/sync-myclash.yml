@@ -4,37 +4,81 @@ on:
     - cron: '23 3 * * *'
   workflow_dispatch:
   push:
+    branches: [main]
     paths:
-      - 'tools/claude-route.cjs'
-      - 'tools/sync-upstream.cjs'
-      - 'tools/test-claude.cjs'
-      - 'tools/gemini-route.cjs'
-      - 'tools/test-gemini.cjs'
+      - 'tools/**'
       - 'gemini-route.json'
       - 'claude-route.json'
       - '.github/workflows/sync-myclash.yml'
-permissions:
-  contents: write
+  pull_request:
+    paths:
+      - 'tools/**'
+      - 'gemini-route.json'
+      - 'claude-route.json'
+      - '.github/workflows/sync-myclash.yml'
+
 concurrency:
-  group: myclash-claude
+  group: myclash-sync-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+
 jobs:
-  sync:
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node tools/sync-upstream.cjs
-      - run: |
+      - name: Sync upstream and inject routes
+        run: node tools/sync-upstream.cjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Format generated scripts
+        run: |
+          npm install -g prettier
+          prettier --write Script/mihomoScript.js Script/Script.js
+      - name: Check generated scripts and routing tests
+        run: |
           node --check Script/mihomoScript.js
           node --check Script/Script.js
           node tools/test-claude.cjs
           node tools/test-gemini.cjs
-      - name: Commit verified scripts
-        if: github.ref == 'refs/heads/main'
+          git diff --check
+      - name: Upload verified scripts
+        uses: actions/upload-artifact@v4
+        with:
+          name: myclash-generated-scripts
+          path: |
+            Script/mihomoScript.js
+            Script/Script.js
+          if-no-files-found: error
+
+  publish:
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' ||
+       github.event_name == 'workflow_dispatch' ||
+       github.event_name == 'push')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download verified scripts
+        uses: actions/download-artifact@v4
+        with:
+          name: myclash-generated-scripts
+          path: .
+      - name: Commit verified scripts only if changed
         run: |
           git diff --check
           git add Script/mihomoScript.js Script/Script.js
@@ -43,4 +87,6 @@ jobs:
             git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
             git commit -m "chore: sync MyClash upstream with Claude and Gemini routes"
             git push origin HEAD:main
+          else
+            echo 'No generated script changes'
           fi
