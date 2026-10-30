@@ -84,7 +84,8 @@ for (const expected of [
   ' * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js',
   ' * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）',
   ' * 构建基于上游提交：' + fallbackSha,
-]) assert.ok(fallback.includes(expected), 'Fallback missing: ' + expected);
+])
+  assert.ok(fallback.includes(expected), 'Fallback missing: ' + expected);
 
 for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   const source = fs.readFileSync(file, 'utf8');

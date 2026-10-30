@@ -71,7 +71,11 @@ async function main() {
   const generated = {};
   for (const file of files) {
     const source = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
-    generated[file] = applyForkHeader(patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg), file, meta.sha);
+    generated[file] = applyForkHeader(
+      patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg),
+      file,
+      meta.sha,
+    );
   }
   for (const file of files) {
     fs.writeFileSync(file, generated[file]);
