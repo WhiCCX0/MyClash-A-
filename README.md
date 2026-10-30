@@ -68,15 +68,19 @@ IN-USER,gemini-01/aistudio-01,Gemini Web
 PROCESS-PATH-REGEX,\\(gemini-web2api-go|aistudio2api)\.exe$,Gemini Web
 DOMAIN,gemini.google.com,Gemini Web
 DOMAIN,gemini.gstatic.com,Gemini Web
+DOMAIN,ai.google.dev,Gemini Web
+DOMAIN,aistudio.google.com,Gemini Web
+DOMAIN,alkalimakersuite-pa.clients6.google.com,Gemini Web
+DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com,Gemini Web
 ```
 
-新增精确 `DOMAIN,gemini.gstatic.com,Gemini Web`，因为 Bettbox 真机日志显示浏览器访问 `gemini.gstatic.com` 曾走 `默认代理`。**没有**加入 `www.gstatic.com`、`ssl.gstatic.com`、`DOMAIN-SUFFIX,gstatic.com`，也没有将 `accounts.google.com` 等共享 Google 主机全局接管。
+新增精确 `DOMAIN,gemini.gstatic.com,Gemini Web`，因为 Bettbox 真机日志显示浏览器访问 `gemini.gstatic.com` 曾走 `默认代理`。另新增 `alkalimakersuite-pa.clients6.google.com` 与 `webchannel-alkalimakersuite-pa.clients6.google.com` 两条精确 AI Studio 域名规则，依据 Bettbox 真机日志及 AIStudio2API 源码中使用的接口主机。**没有**加入 `waa-pa.clients6.google.com`、`www.gstatic.com`、`ssl.gstatic.com`、`DOMAIN-SUFFIX,gstatic.com`，也没有将 `accounts.google.com` 等共享 Google 主机全局接管。
 
 **后端接入：** Gemini Web 后端**代理池**填写 `http://gemini-01:x@127.0.0.1:7890`；AIStudio2API **管理页默认代理**填写 `http://aistudio-01:x@127.0.0.1:7890`。两个账号标签仅供 `IN-USER` 分流，**不是身份认证**；原有 `allow-lan: true`、`bind-address: '*'` 未改变，LAN 客户端也可能提交相同用户名。
 
 **进程兜底配置保留，实际命中尚未观察到。** [magpie-gemini-web 插件 `lib/native.mjs:64`](https://github.com/BUKOWSKIREAL/magpie-gemini-web/blob/17ac5ca88e4a7f5e703140bbe3e8bd6a72b7677e/lib/native.mjs#L64) 固定 Windows 文件名 `gemini-web2api-go.exe`，[`lib/studio-native.mjs:107`](https://github.com/BUKOWSKIREAL/magpie-gemini-web/blob/17ac5ca88e4a7f5e703140bbe3e8bd6a72b7677e/lib/studio-native.mjs#L107) 固定 `aistudio2api.exe`；**两个名称均已由 Bettbox 真机连接日志确认**。若使用自行下载、文件名带版本号的发布包，需要改回这两个名称，否则进程规则可能静默失配。进程规则一旦命中，会将两后端进程访问的**全部目标**（包含非 Google 地址）分流至 Gemini Web；`camoufox.exe` 不在匹配范围。
 
-**上一次真机验收（PR #2）：** `aistudio2api.exe` 到 `alkalimakersuite-pa.clients6.google.com`、`gemini-web2api-go.exe` 到 `gemini.google.com`，均显示 `InUser(gemini-01/aistudio-01)`，代理链为 `Gemini Web → Gemini 台湾 → 2-台湾-住宅`。Mihomo 已接受进程兜底规则，但**两后端都带用户名，尚未观察到 `PROCESS-PATH-REGEX` 实际命中**。PR #3 变更了 Gemini 的地区组引用方式，**尚未进行本版本的真机验收**。
+**上一次真机验收（PR #2）：** `aistudio2api.exe` 到 `alkalimakersuite-pa.clients6.google.com`、`gemini-web2api-go.exe` 到 `gemini.google.com`，均显示 `InUser(gemini-01/aistudio-01)`，代理链为 `Gemini Web → Gemini 台湾 → 2-台湾-住宅`。Mihomo 已接受进程兜底规则，但**两后端都带用户名，尚未观察到 `PROCESS-PATH-REGEX` 实际命中**。PR #3 变更了 Gemini 的地区组引用方式，**PR #3 已真机验收通过**。
 
 **其他限制：** 不使用连接轮询的 `round-robin`；后端账号跨请求及 Cookie 续期出口一致性问题仍待后端解决。用户需以实际连接日志验证策略链，不保证规避 Google 风控。
 

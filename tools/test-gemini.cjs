@@ -9,6 +9,8 @@ const expectedGeminiRules=[
   'DOMAIN,gemini.gstatic.com,Gemini Web',
   'DOMAIN,ai.google.dev,Gemini Web',
   'DOMAIN,aistudio.google.com,Gemini Web',
+  'DOMAIN,alkalimakersuite-pa.clients6.google.com,Gemini Web',
+  'DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com,Gemini Web',
 ];
 const sharedOrder=['手动选择','美国','日本','新加坡','台湾','其他节点'];
 const names=['🇺🇸 US 01','美国 02','🇯🇵 JP 01','日本 02','🇸🇬 SG 01','新加坡 02','🇭🇰 HK 01','香港 02','🇹🇼 TW 01','台湾 02','Mystery 01'];
@@ -27,7 +29,7 @@ function claudeOnly(s){
   const head=s.split(marker)[0];
   const block=/^  \/\/ BEGIN MyClash-A- Gemini routing \(generated\)[\s\S]*?^  \/\/ END MyClash-A- Gemini routing[ \t]*\r?\n/gm;
   assert.equal((head.match(block)||[]).length,1,'One Gemini injection required');
-  const restored=head.replace(block,'');
+  const restored=head.replace(block,()=> '');
   assert.match(restored,/^  \/\/ END MyClash-A- Claude routing\r?\n  return newConfig;[ \t]*$/m,
     'Claude END must be immediately followed by return newConfig with no blank line');
   return restored;
@@ -47,8 +49,18 @@ const bad={
   'regex newline':{in_users:['a'],process_path_regex:'a\nb'},
   'regex invalid':{in_users:['a'],process_path_regex:'[bad'},
   'regex long':{in_users:['a'],process_path_regex:'x'.repeat(257)},
+  'RE2 positive lookahead':{in_users:['a'],process_path_regex:'foo(?=bar)'},
+  'RE2 negative lookahead':{in_users:['a'],process_path_regex:'foo(?!bar)'},
+  'RE2 positive lookbehind':{in_users:['a'],process_path_regex:'(?<=foo)bar'},
+  'RE2 negative lookbehind':{in_users:['a'],process_path_regex:'(?<!foo)bar'},
+  'RE2 backreference':{in_users:['a'],process_path_regex:String.raw`\1`},
   'not object':null
 };
+for(const value of ['(?i)gemini\\.exe$', '(?s)(?i)gemini.*', '(?-i)Gemini']) {
+  check('parse/accept RE2 inline flags '+value,()=>{
+    assert.equal(parseGeminiConfig({in_users:['a'],process_path_regex:value}).process_path_regex,value);
+  });
+}
 for(const [label,cfg] of Object.entries(bad))
   check('parse/reject '+label,()=>assert.throws(()=>parseGeminiConfig(cfg)));
 for(const file of ['Script/mihomoScript.js','Script/Script.js']){
@@ -94,14 +106,15 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
   check(file+'/Claude selector invariant',()=>{
     assert.deepEqual(plain(byName.get('Claude固定出口')),plain(oldByName.get('Claude固定出口')));
   });
-  check(file+'/rules exact six, order and priority',()=>{
+  check(file+'/rules exact config-derived count, order and priority',()=>{
     const rules=cfg.rules,at=rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口');
     assert.ok(at>=0);
-    assert.equal(expectedGeminiRules.length,6,'Expected IN-USER, process, and four domain rules');
+    assert.equal(expectedGeminiRules.length,1+Number(Boolean(routeConfig.process_path_regex))+6);
     assert.deepEqual(plain(rules.slice(at+1,at+1+expectedGeminiRules.length)),expectedGeminiRules);
     assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,expectedGeminiRules.length);
     assert.equal(rules.filter(r=>r.startsWith('IN-USER,')&&r.endsWith(',Gemini Web')).length,1);
-    assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web')).length,1);
+    assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web')).length,
+      Number(Boolean(routeConfig.process_path_regex)));
     for(const rule of ['RULE-SET,google,Google','RULE-SET,ai,AI'])
       if(rules.includes(rule))assert.ok(rules.indexOf(rule)>at+expectedGeminiRules.length);
   });
@@ -123,7 +136,8 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
     const rules=cfg.rules.filter(rule=>rule.endsWith(',Gemini Web'));
     assert.ok(!rules.some(rule=>forbidden.some(domain=>rule.includes(domain))));
     assert.ok(!rules.some(rule=>rule.includes('DOMAIN-SUFFIX,gstatic.com')||rule.includes('DOMAIN,gstatic.com')));
-    for(const domain of ['gemini.gstatic.com','ai.google.dev','aistudio.google.com'])
+    for(const domain of ['gemini.gstatic.com','ai.google.dev','aistudio.google.com',
+      'alkalimakersuite-pa.clients6.google.com','webchannel-alkalimakersuite-pa.clients6.google.com'])
       assert.equal(rules.filter(rule=>rule==='DOMAIN,'+domain+',Gemini Web').length,1);
   });
   check(file+'/Claude-only deep invariants',()=>{
@@ -173,7 +187,21 @@ for(const file of ['Script/mihomoScript.js','Script/Script.js']){
     assert.equal(rules[at+3],'DOMAIN,gemini.gstatic.com,Gemini Web');
     assert.equal(rules[at+4],'DOMAIN,ai.google.dev,Gemini Web');
     assert.equal(rules[at+5],'DOMAIN,aistudio.google.com,Gemini Web');
+    assert.equal(rules[at+6],'DOMAIN,alkalimakersuite-pa.clients6.google.com,Gemini Web');
+    assert.equal(rules[at+7],'DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com,Gemini Web');
     assert.equal(rules.filter(r=>r.startsWith('PROCESS-PATH-REGEX,')).length,1);
+  });
+  check(file+'/empty process_path_regex produces complete ordered rules',()=>{
+    const noProcess={in_users:[...routeConfig.in_users],process_path_regex:''};
+    const runtime=load(patchGemini(original,noProcess)).main(structuredClone(sample));
+    const rules=runtime.rules,at=rules.indexOf('IN-USER,'+noProcess.in_users.join('/')+',Gemini Web');
+    const expected=expectedGeminiRules.filter(rule=>!rule.startsWith('PROCESS-PATH-REGEX,'));
+    assert.ok(at>=0);
+    assert.deepEqual(plain(rules.slice(at,at+expected.length)),expected);
+    assert.equal(rules.filter(r=>r.endsWith(',Gemini Web')).length,expected.length);
+    assert.ok(!rules.some(r=>r.startsWith('PROCESS-PATH-REGEX,')&&r.endsWith(',Gemini Web')));
+    assert.deepEqual(plain(runtime['proxy-groups'].find(g=>g.name==='Gemini Web').proxies),
+      plain(gemini.proxies));
   });
   check(file+'/patch rejects duplicate or missing Claude',()=>{
     assert.throws(()=>patchGemini(source,{in_users:['gemini-01'],process_path_regex:''}));

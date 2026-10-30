@@ -1,12 +1,48 @@
 'use strict';
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const {patch,parseAnthropicSource}=require('./claude-route.cjs');
+const anthropicFixture=[
+ '# canonical list', 'anthropic.com', 'claude.ai', 'claude.com', 'clau.de',
+ 'domain:anthropic.com @!cn', 'full:api.anthropic.com @ads',
+ 'keyword:claude', 'example.org @ads @!cn # attributes and comment',
+ 'example.org', 'alpha.example', 'beta.example', 'gamma.example',
+ 'delta.example', 'epsilon.example', 'zeta.example', 'eta.example',
+ 'theta.example', 'iota.example', 'kappa.example', 'lambda.example'
+].join('\n');
+const parsed=parseAnthropicSource(anthropicFixture);
+for(const expected of [
+ 'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
+ 'DOMAIN,api.anthropic.com,Claude固定出口',
+ 'DOMAIN-KEYWORD,claude,Claude固定出口',
+ 'DOMAIN-SUFFIX,example.org,Claude固定出口'
+])assert.ok(parsed.includes(expected), 'parse missing '+expected);
+assert.equal(parsed.filter(x=>x==='DOMAIN-SUFFIX,anthropic.com,Claude固定出口').length,1);
+assert.equal(parsed.filter(x=>x==='DOMAIN-SUFFIX,example.org,Claude固定出口').length,1);
+for(const directive of ['regexp:foo','include:foo','unknown:foo']) {
+ assert.throws(()=>parseAnthropicSource(anthropicFixture+'\n'+directive),
+  /Unsupported|Invalid/, 'Expected parser rejection: '+directive);
+}
+function originalUpstreamScript(source) {
+ const addon='// Shared add-on: upstream MyClash code is otherwise unchanged.';
+ const gemini='// Gemini Web P0 add-on (generated)';
+ assert.ok(source.includes(addon)&&source.includes(gemini));
+ let upstream=source.slice(0,source.indexOf(addon));
+ const claudeBlock=/^  \/\/ BEGIN MyClash-A- Claude routing \(generated\)\r?\n[\s\S]*?^  \/\/ END MyClash-A- Claude routing\r?\n/gm;
+ const geminiBlock=/^  \/\/ BEGIN MyClash-A- Gemini routing \(generated\)\r?\n[\s\S]*?^  \/\/ END MyClash-A- Gemini routing\r?\n/gm;
+ assert.equal((upstream.match(claudeBlock)||[]).length,1);
+ assert.equal((upstream.match(geminiBlock)||[]).length,1);
+ upstream=upstream.replace(claudeBlock,()=> '').replace(geminiBlock,()=> '');
+ return upstream;
+}
+
 const sample={proxies:[
  ...['🇹🇼 台湾 01','🇹🇼 TW 02','🇭🇰 香港 01','🇯🇵 日本 01','🇺🇸 美国 01','🇸🇬 新加坡 01']
  .map((name,i)=>({name,type:'ss',server:'node'+i+'.example.net',port:443,cipher:'aes-128-gcm',password:'test'}))
 ],dns:{}};
 const pinned=JSON.parse(fs.readFileSync('claude-route.json','utf8')).node_name;
 for(const file of ['Script/mihomoScript.js','Script/Script.js']){
-const main=vm.runInNewContext(fs.readFileSync(file,'utf8')+'\nmain',{},{timeout:5000});
+const source=fs.readFileSync(file,'utf8');
+const main=vm.runInNewContext(source+'\nmain',{},{timeout:5000});
 const cfg=main(structuredClone(sample));
 const g=cfg['proxy-groups'].find(x=>x.name==='Claude固定出口');
 assert.ok(g);assert.equal(g.type,'select');
@@ -49,25 +85,23 @@ for (const shared of ['storage.googleapis.com','raw.githubusercontent.com','chal
 assert.ok(cfg.rules.indexOf('DOMAIN-KEYWORD,datadoghq,REJECT') <
  cfg.rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口'));
 
-const required = [
- 'ant.dev','anthropic.com','anthropic.team','antspace.dev',
- 'chatbotclaude.com','clau.de','claude.ai','claude.app','claude.com',
- 'claude.dev','claude.new','claude.site','claudeacademy.com',
- 'claudemcpclient.com','claudemcpcontent.com','claudepages.dev',
- 'claudestudio.com','claudeusercontent.com'
-];
-for(const domain of required) {
- assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,'+domain+',Claude固定出口'),
-   file+': lost Claude domain '+domain);
+const generatedRules=Array.from(vm.runInNewContext(source+'\nANTHROPIC_RULES',{}, {timeout:5000}));
+assert.ok(generatedRules.length>=15, file+': missing generated domain list');
+for(const rule of generatedRules) {
+ assert.ok(cfg.rules.includes(rule),file+': lost canonical Anthropic rule '+rule);
 }
-assert.ok(cfg.rules.includes('DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口'));
+for(const core of ['anthropic.com','claude.ai','claude.com','clau.de']) {
+ assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,'+core+',Claude固定出口'),
+  file+': missing core domain '+core);
+}
 const provider = cfg['rule-providers'].myclash_claude_anthropic;
 assert.ok(provider && provider.type === 'http' && provider.behavior === 'domain' &&
  provider.format === 'mrs' && provider.url.includes('anthropic.mrs'));
 const claudeIdx=cfg.rules.indexOf('RULE-SET,myclash_claude_anthropic,Claude固定出口');
 const aiIdx=cfg.rules.indexOf('RULE-SET,ai,AI');
 if (aiIdx >= 0) assert.ok(claudeIdx >= 0 && claudeIdx < aiIdx, file+': Claude after AI');
-assert.ok(cfg.rules.indexOf('DOMAIN-SUFFIX,claude.new,Claude固定出口') < aiIdx || aiIdx < 0);
+for(const core of ['anthropic.com','claude.ai','claude.com','clau.de'])
+ assert.ok(aiIdx < 0 || cfg.rules.indexOf('DOMAIN-SUFFIX,'+core+',Claude固定出口')<aiIdx);
 
 assert.ok(cfg.dns&&cfg.tun&&cfg.profile['store-selected']);
 if(pinned){assert.ok(g.proxies.length<=2);assert.equal(g.proxies[0],g.proxies.length===2?pinned:'REJECT');}
@@ -77,5 +111,18 @@ const noTwGroup=noTw['proxy-groups'].find(x=>x.name==='Claude固定出口');
 assert.deepEqual(Array.from(noTwGroup.proxies),['REJECT'],file+': missing Taiwan must reject');
 assert.ok(!noTw['proxy-groups'].some(x=>x.type==='fallback' || x.name.endsWith('-故障转移')));
 
+const upstream=originalUpstreamScript(source);
+const runner=(name)=>vm.runInNewContext(patch(upstream,name,generatedRules)+'\nmain',{}, {timeout:5000});
+for(const name of ['🇹🇼 台湾 01','🇹🇼 台湾 $& 01','🇭🇰 香港 01']) {
+ const config=structuredClone(sample);
+ config.proxies.push({name:'🇹🇼 台湾 $& 01',type:'ss',server:'pinned.example.net',
+   port:443,cipher:'aes-128-gcm',password:'test'});
+ const actual=runner(name)(config)['proxy-groups'].find(x=>x.name==='Claude固定出口');
+ assert.ok(actual,file+': missing pinned group');
+ const expected=(name==='🇭🇰 香港 01')?['REJECT']:[name,'REJECT'];
+ assert.deepEqual(Array.from(actual.proxies),expected,file+': bad pinned name '+name);
+ assert.equal(actual['default-selected'],expected.length===2?name:'REJECT',
+   file+': default-selected mismatch');
+}
 console.log('PASS '+file);
 }

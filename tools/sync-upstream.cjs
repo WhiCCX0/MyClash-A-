@@ -6,7 +6,12 @@ const files=['Script/mihomoScript.js','Script/Script.js'];
 async function get(url){
   for(let i=0;i<3;i++){
     try {
-      const r=await fetch(url,{headers:{'User-Agent':'MyClash-A-Sync'},signal:AbortSignal.timeout(30000)});
+      const headers={'User-Agent':'MyClash-A-Sync'};
+      if(new URL(url).hostname==='api.github.com'){
+        headers.Accept='application/vnd.github+json';
+        if(process.env.GITHUB_TOKEN)headers.Authorization='Bearer '+process.env.GITHUB_TOKEN;
+      }
+      const r=await fetch(url,{headers,signal:AbortSignal.timeout(30000)});
       if(!r.ok)throw Error(url+' HTTP '+r.status);
       return await r.text();
     } catch(e) {if(i===2)throw e;await new Promise(res=>setTimeout(res,1000*(i+1)));}

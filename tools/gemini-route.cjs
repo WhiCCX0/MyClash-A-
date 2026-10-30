@@ -1,7 +1,7 @@
 'use strict';
 
-// Gemini Web P0: a dedicated selector and five independent country selectors.
-// No fallback, url-test, load-balance, or extra listening ports are created here.
+// Gemini Web: one dedicated selector reusing existing upstream region groups.
+// No country-specific selectors, fallback, load-balance, or ports are created.
 function parseGeminiConfig(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
     throw Error('Gemini config must be a JSON object');
@@ -26,7 +26,12 @@ function parseGeminiConfig(obj) {
     throw Error('Invalid Gemini process_path_regex');
   }
   if (regex) {
-    try { new RegExp(regex); } catch (e) { throw Error('Invalid Gemini process regex: ' + e.message); }
+    if (/\(\?(?:=|!|<=|<!)/.test(regex) || /\\[1-9]/.test(regex)) {
+      throw Error('Unsupported RE2 process_path_regex construct');
+    }
+    // Go RE2 supports leading inline flags (e.g. (?i), (?s)); JavaScript does not.
+    const jsRegex = regex.replace(/^(?:\(\?[imsU-]+\))+/, () => '');
+    try { new RegExp(jsRegex); } catch (e) { throw Error('Invalid Gemini process regex: ' + e.message); }
   }
   return {in_users: [...obj.in_users], process_path_regex: regex};
 }
@@ -47,8 +52,10 @@ function addGeminiRoute(config, cfg) {
     throw Error('Missing validated GEMINI_CONFIG');
   }
   const groups = config['proxy-groups'];
-  const names = new Set(groups.map(g => g.name));
-  const existingProxies = new Set(config.proxies.map(p => p.name));
+  const namedGroups = groups.filter(g => g && typeof g.name === 'string' && g.name);
+  const names = new Set(namedGroups.map(g => g.name));
+  const existingProxies = new Set(config.proxies.filter(p => p && typeof p.name === 'string' && p.name)
+    .map(p => p.name));
   const groupName = 'Gemini Web';
   if (names.has(groupName) || existingProxies.has(groupName)) {
     throw Error('Gemini selector name collision');
@@ -57,7 +64,7 @@ function addGeminiRoute(config, cfg) {
   // Reuse existing upstream groups unchanged; omit absent/lite-mode groups.
   const sharedOrder = ['手动选择', '美国', '日本', '新加坡', '台湾', '其他节点'];
   const sharedGroups = sharedOrder.filter(name => {
-    const group = groups.find(g => g.name === name);
+    const group = namedGroups.find(g => g.name === name);
     return group && Array.isArray(group.proxies) && group.proxies.length > 0;
   });
   const entry = {
@@ -67,11 +74,11 @@ function addGeminiRoute(config, cfg) {
     icon: iconBaseUrl + 'Google.svg',
     hidden: false,
   };
-  const claudeIdx = groups.findIndex(g => g.name === 'Claude固定出口');
-  const defaultIdx = groups.findIndex(g => g.name === '默认代理');
+  const claudeIdx = groups.findIndex(g => g && g.name === 'Claude固定出口');
+  const defaultIdx = groups.findIndex(g => g && g.name === '默认代理');
   const insertion = (claudeIdx >= 0 ? claudeIdx : defaultIdx) + 1;
   groups.splice(insertion, 0, entry);
-  const global = groups.find(g => g.name === 'GLOBAL');
+  const global = namedGroups.find(g => g.name === 'GLOBAL');
   if (!global || !Array.isArray(global.proxies)) throw Error('Missing GLOBAL group');
   if (!global.proxies.includes(groupName)) global.proxies.push(groupName);
 
@@ -92,6 +99,8 @@ function addGeminiRoute(config, cfg) {
   geminiRules.push('DOMAIN,gemini.gstatic.com,Gemini Web');
   geminiRules.push('DOMAIN,ai.google.dev,Gemini Web');
   geminiRules.push('DOMAIN,aistudio.google.com,Gemini Web');
+  geminiRules.push('DOMAIN,alkalimakersuite-pa.clients6.google.com,Gemini Web');
+  geminiRules.push('DOMAIN,webchannel-alkalimakersuite-pa.clients6.google.com,Gemini Web');
   config.rules.splice(lastIndex + 1, 0, ...geminiRules);
 }
 

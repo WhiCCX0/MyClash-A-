@@ -6,6 +6,7 @@ on:
     paths:
       - 'Script/*'
       - 'Test/**'
+      - 'tools/*.cjs'
       - '**/*.yaml'
       - '**/*.yml'
       - '.prettierrc*'
@@ -13,6 +14,7 @@ on:
     paths:
       - 'Script/*'
       - 'Test/**'
+      - 'tools/*.cjs'
       - '**/*.yaml'
       - '**/*.yml'
       - '.prettierrc*'
@@ -44,7 +46,7 @@ jobs:
 
       - name: format files
         run: |
-          git ls-files -z '*.js' '*.yml' '*.yaml' | xargs -0 -r prettier --write
+          git ls-files -z '*.js' '*.cjs' '*.yml' '*.yaml' | xargs -0 -r prettier --write
 
       - name: commit and push changes
         run: |

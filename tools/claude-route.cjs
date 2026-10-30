@@ -6,17 +6,19 @@ function parseAnthropicSource(source) {
   if (typeof source !== 'string' || !source.trim()) throw Error('Empty Anthropic source');
   const entries = new Set();
   for (const raw of source.split(/\r?\n/)) {
-    const line = raw.replace(/\s+#.*$/, '').trim();
+    const line = raw.replace(/\s+#.*$/, () => '')
+      .replace(/(?:\s+@!?[a-z0-9._-]+)+\s*$/i, () => '').trim();
     if (!line || line.startsWith('#')) continue;
     let kind = 'DOMAIN-SUFFIX', domain = line;
     if (line.startsWith('full:')) { kind = 'DOMAIN'; domain = line.slice(5); }
+    else if (line.startsWith('domain:')) { domain = line.slice(7); }
     else if (line.startsWith('keyword:')) { kind = 'DOMAIN-KEYWORD'; domain = line.slice(8); }
     else if (line.startsWith('regexp:') || line.startsWith('include:') ||
              line.includes('@') || line.includes(' ')) {
       throw Error('Unsupported Anthropic domain directive: ' + line);
     }
     if (!/^[a-z0-9.-]+$/i.test(domain) || domain.startsWith('.') ||
-        domain.endsWith('.') || !domain.includes('.')) {
+        domain.endsWith('.') || (kind !== 'DOMAIN-KEYWORD' && !domain.includes('.'))) {
       throw Error('Invalid Anthropic domain: ' + line);
     }
     entries.add(kind + ',' + domain.toLowerCase() + ',Claude固定出口');
@@ -108,7 +110,7 @@ if(source.includes('BEGIN MyClash-A- Claude routing')||
 if((source.match(/function main\s*\(\s*config\s*\)/g)||[]).length!==1||
 (source.match(/^  return newConfig;[ \t]*$/gm)||[]).length!==1)
 throw Error('Upstream main changed, keeping last working build');
-const result=source.replace(/^  return newConfig;[ \t]*$/m,
+const result=source.replace(/^  return newConfig;[ \t]*$/m, () =>
 '  // BEGIN MyClash-A- Claude routing (generated)\n'+
 '  addClaudeRoute(newConfig, '+JSON.stringify(pinnedNode)+', ANTHROPIC_RULES);\n'+
 '  // END MyClash-A- Claude routing\n'+
