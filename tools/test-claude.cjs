@@ -171,7 +171,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
       provider.type === 'http' &&
       provider.behavior === 'domain' &&
       provider.format === 'mrs' &&
-      provider.url.includes('anthropic.mrs'),
+      provider.url.startsWith(vm.runInNewContext(source + '\nruleSetBaseUrl', {}, { timeout: 5000 })) &&
+      provider.url.endsWith('geosite/anthropic.mrs'),
   );
   const claudeIdx = cfg.rules.indexOf('RULE-SET,myclash_claude_anthropic,Claude固定出口');
   const aiIdx = cfg.rules.indexOf('RULE-SET,ai,AI');
