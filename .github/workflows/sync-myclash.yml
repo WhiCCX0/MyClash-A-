@@ -77,10 +77,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: myclash-generated-scripts
-          path: .
+          path: Script
       - name: Commit verified scripts only if changed
         run: |
           git diff --check
+          test -f Script/Script.js && test -f Script/mihomoScript.js
+          test ! -e Script.js && test ! -e mihomoScript.js
           git add Script/mihomoScript.js Script/Script.js
           if ! git diff --cached --quiet; then
             git config user.name 'github-actions[bot]'
