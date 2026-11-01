@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：9ae100c4c23fb492a2b05934f1983a452eabe85e
+ * 构建基于上游提交：ef3adf1fd0c89e3747cc6a07971abb6941bf7a24
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -75,6 +75,7 @@ const prefixRules = [
   // 国内直连
   'RULE-SET,geolocation-cn,直连',
   'RULE-SET,games_cn,直连', // 已包含 steam 下载域名
+  'RULE-SET,synology,直连',
   'RULE-SET,nvidia_cn,直连',
   'RULE-SET,apple_cn,直连',
   'RULE-SET,microsoft_cn,直连',
@@ -252,6 +253,12 @@ const baseRuleProviders = {
     url: `${ruleSetBaseUrl}geosite/category-games@cn.mrs`,
     path: './ruleset/category-games@cn.mrs',
     'path-in-bundle': 'geo/geosite/category-games@cn.mrs',
+  },
+  synology: {
+    ...ruleProviderCommonDomain,
+    url: `${ruleSetBaseUrl}geosite/synology.mrs`,
+    path: './ruleset/synology.mrs',
+    'path-in-bundle': 'geo/geosite/synology.mrs',
   },
   nvidia_cn: {
     ...ruleProviderCommonDomain,
