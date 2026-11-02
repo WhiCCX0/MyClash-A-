@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：ef3adf1fd0c89e3747cc6a07971abb6941bf7a24
+ * 构建基于上游提交：6bc887c89a53fab9f23dac7b0a883d38189972ee
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -366,7 +366,8 @@ const serviceConfigs = [
       },
     },
     icon: `${iconBaseUrl}Google.svg`,
-    rules: ['RULE-SET,google,Google', 'RULE-SET,google_ip,Google,no-resolve'],
+    rules: ['RULE-SET,google,Google'],
+    ipRules: ['RULE-SET,google_ip,Google'],
   },
   {
     name: 'AI',
@@ -381,7 +382,12 @@ const serviceConfigs = [
       },
     },
     icon: `${iconBaseUrl}OpenAI.svg`,
-    rules: ['RULE-SET,ai,AI'],
+    rules: [
+      'RULE-SET,ai,AI',
+      'DOMAIN,cdn.usefathom.com,AI',
+      'DOMAIN-SUFFIX,intercom.io,AI',
+      'DOMAIN-SUFFIX,intercomcdn.com,AI',
+    ],
   },
   {
     name: 'Telegram',
@@ -401,7 +407,8 @@ const serviceConfigs = [
       },
     },
     icon: `${iconBaseUrl}Telegram.svg`,
-    rules: ['RULE-SET,telegram,Telegram', 'RULE-SET,telegram_ip,Telegram,no-resolve'],
+    rules: ['RULE-SET,telegram,Telegram'],
+    ipRules: ['RULE-SET,telegram_ip,Telegram'],
   },
   {
     name: 'Steam',
@@ -422,7 +429,8 @@ const serviceConfigs = [
       },
     },
     icon: `${iconBaseUrl}Steam.svg`,
-    rules: ['RULE-SET,steam,Steam', 'RULE-SET,steam_ip,Steam,no-resolve'],
+    rules: ['RULE-SET,steam,Steam'],
+    ipRules: ['RULE-SET,steam_ip,Steam'],
   },
   {
     name: 'AdBlock',
@@ -738,6 +746,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
 
   const functionalGroups = [];
   const functionalRules = [];
+  const functionalIpRules = [];
   const finalRuleProviders = { ...baseRuleProviders };
 
   if (!blockForeignQuicEnabled) {
@@ -790,6 +799,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
       globalGroup,
       functionalGroups: [defaultGroup, ...(autoSelectGroupEnabled ? [autoSelectGroup] : [])],
       functionalRules: [],
+      functionalIpRules: [],
       finalRuleProviders,
       directGroup,
     };
@@ -810,6 +820,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
     if (!ruleOptionsEnable[svc.name]) continue;
 
     functionalRules.push(...(svc.rules || []));
+    functionalIpRules.push(...(svc.ipRules || []));
     Object.assign(finalRuleProviders, svc.providers || {});
   }
 
@@ -872,7 +883,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
     icon: `${iconBaseUrl}Global.svg`,
   };
 
-  return { globalGroup, functionalGroups, functionalRules, finalRuleProviders, directGroup };
+  return { globalGroup, functionalGroups, functionalRules, functionalIpRules, finalRuleProviders, directGroup };
 }
 
 // ---dns和hosts相关处理---
@@ -1384,11 +1395,8 @@ function main(config) {
 
   const generatedRegionGroups = ruleOptionsEnable.极简模式 ? [] : buildRegionGroups(filteredProxies, customProxies);
 
-  const { globalGroup, functionalGroups, functionalRules, finalRuleProviders, directGroup } = buildFunctionalGroups(
-    filteredProxies,
-    generatedRegionGroups,
-    { customProxyNames, customGroup },
-  );
+  const { globalGroup, functionalGroups, functionalRules, functionalIpRules, finalRuleProviders, directGroup } =
+    buildFunctionalGroups(filteredProxies, generatedRegionGroups, { customProxyNames, customGroup });
 
   const { dns, hosts, proxies: mappedProxies } = buildDnsAndHostsConfig(config, filteredProxies);
 
@@ -1446,9 +1454,10 @@ function main(config) {
     ...prefixRules,
     ...(ruleOptionsEnable.屏蔽国外QUIC ? blockForeignQuic : []),
     ...functionalRules,
+    'RULE-SET,geolocation-!cn,默认代理',
+    ...functionalIpRules,
 
     // 兜底规则
-    'RULE-SET,geolocation-!cn,默认代理',
     'RULE-SET,cn_ip,直连',
     'RULE-SET,private_ip,直连',
     `MATCH,${ruleOptionsEnable.极简模式 ? '默认代理' : '漏网之鱼'}`,
