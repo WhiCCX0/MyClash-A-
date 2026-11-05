@@ -133,7 +133,15 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   );
 
   assert.equal(cfg.rules[0], 'DOMAIN-SUFFIX,sentry.io,REJECT');
-  assert.equal(cfg.rules[3], 'DOMAIN-KEYWORD,datadoghq,REJECT');
+  assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.eu,REJECT'));
+  // Claude owns the requested registrable domains, including Datadog US intake.
+  // A broad Datadog REJECT would shadow the new Claude rule.
+  for (const domain of ['anthropic.com', 'claude.ai', 'claudeusercontent.com', 'datadoghq.com']) {
+    const rule = 'DOMAIN-SUFFIX,' + domain + ',Claude固定出口';
+    assert.equal(cfg.rules.filter((r) => r === rule).length, 1, file + ': missing or duplicate suffix ' + domain);
+  }
+  assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
+  assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
   // Shared third-party domains must not be globally hijacked.
   const aiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
@@ -154,7 +162,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     );
   }
   assert.ok(
-    cfg.rules.indexOf('DOMAIN-KEYWORD,datadoghq,REJECT') < cfg.rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口'),
+    cfg.rules.indexOf('DOMAIN-SUFFIX,datadoghq.com,Claude固定出口') <
+      cfg.rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口'),
   );
 
   const generatedRules = Array.from(vm.runInNewContext(source + '\nANTHROPIC_RULES', {}, { timeout: 5000 }));
