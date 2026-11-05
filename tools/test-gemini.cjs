@@ -244,10 +244,13 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.deepEqual(plain(disabled.find((g) => g.name === 'Gemini Web').proxies), expected);
   });
   check(file + '/minimal mode only default', () => {
-    assert.equal((source.match(/极简模式:\s*false/g) || []).length, 1);
-    const lite = load(source.replace(/极简模式:\s*false/, () => '极简模式: true')).main(structuredClone(sample))[
-      'proxy-groups'
-    ];
+    // MyClash upstream renamed 极简模式 to 极简国内外分流模式.
+    // Accept either spelling, but require exactly one disabled setting to toggle.
+    const minimalSetting = /(?:极简国内外分流模式|极简模式):\s*false\b/g;
+    const matches = source.match(minimalSetting) || [];
+    assert.equal(matches.length, 1, 'Expected exactly one disabled upstream minimal-mode setting');
+    const liteSource = source.replace(minimalSetting, (match) => match.replace(/false\b/, 'true'));
+    const lite = load(liteSource).main(structuredClone(sample))['proxy-groups'];
     const keys = new Set(lite.map((x) => x.name));
     assert.ok(keys.has('默认代理'));
     assert.deepEqual(plain(lite.find((x) => x.name === 'Gemini Web').proxies), ['默认代理']);
