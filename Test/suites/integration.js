@@ -7,6 +7,9 @@ const proxyNames = (proxies) => proxies.map((p) => p.name);
 function withOptions(api, patch, fn) {
   const saved = {};
   for (const key of Object.keys(patch)) {
+    if (!Object.prototype.hasOwnProperty.call(api.ruleOptionsEnable, key)) {
+      throw new Error(`上游已删除或重命名配置开关：${key}`);
+    }
     saved[key] = api.ruleOptionsEnable[key];
     api.ruleOptionsEnable[key] = patch[key];
   }
@@ -342,7 +345,7 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
     }),
   );
   h.test('生成倍率组=false → 不生成倍率组，节点按地区归类', () =>
-    withOptions(api, { 生成倍率组: false }, () => {
+    withOptions(api, { 生成高低倍率组: false }, () => {
       const out = api.main(fx.typicalSubscription());
       h.assert(!groupByName(out['proxy-groups'], '低倍率节点'), '不应生成低倍率组');
       h.assert(!groupByName(out['proxy-groups'], '高倍率节点'), '不应生成高倍率组');
