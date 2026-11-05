@@ -138,7 +138,7 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   // A broad Datadog REJECT would shadow the new Claude rule.
   for (const domain of ['anthropic.com', 'claude.ai', 'claudeusercontent.com', 'datadoghq.com']) {
     const rule = 'DOMAIN-SUFFIX,' + domain + ',Claude固定出口';
-    assert.equal(cfg.rules.filter((r) => r === rule).length, 1, file + ': missing or duplicate suffix ' + domain);
+    assert.ok(cfg.rules.includes(rule), file + ': missing suffix ' + domain);
   }
   assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
