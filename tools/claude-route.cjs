@@ -42,9 +42,7 @@ function parseAnthropicSource(source) {
 
 const BLOCK = [
   'DOMAIN-SUFFIX,sentry.io,REJECT',
-  'DOMAIN-SUFFIX,datadoghq.com,REJECT',
   'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
-  'DOMAIN-KEYWORD,datadoghq,REJECT',
 ];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
@@ -53,6 +51,8 @@ const ROUTE = [
   'DOMAIN-SUFFIX,claude.dev,Claude固定出口',
   'DOMAIN-SUFFIX,clau.de,Claude固定出口',
   'DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口',
+  // Entire registrable domain, not just http-intake.logs.us5.datadoghq.com.
+  'DOMAIN-SUFFIX,datadoghq.com,Claude固定出口',
   'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
   'DOMAIN,anthropic.auth0.com,Claude固定出口',
   'DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口',
