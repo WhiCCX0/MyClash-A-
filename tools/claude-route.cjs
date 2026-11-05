@@ -40,10 +40,7 @@ function parseAnthropicSource(source) {
   return [...entries].sort();
 }
 
-const BLOCK = [
-  'DOMAIN-SUFFIX,sentry.io,REJECT',
-  'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
-];
+const BLOCK = ['DOMAIN-SUFFIX,sentry.io,REJECT', 'DOMAIN-SUFFIX,datadoghq.eu,REJECT'];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
   'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
