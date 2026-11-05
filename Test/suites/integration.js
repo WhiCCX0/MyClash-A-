@@ -300,7 +300,7 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
   // ---------------- 配置选项切换 ----------------
   h.section('集成测试 · 配置选项切换');
   h.test('极简模式仅保留基础策略组且 MATCH 走默认代理', () =>
-    withOptions(api, { 极简模式: true }, () => {
+    withOptions(api, { 极简国内外分流模式: true }, () => {
       const out = api.main(fx.typicalSubscription());
       const groups = out['proxy-groups'];
       // Fork 的 Claude 与 Gemini 路由属于独立附加组，不改变上游极简模式基础组。
@@ -383,16 +383,21 @@ function runIntegrationTests(h, api, meta, fx, loadScript, scriptFile) {
       h.assert(groupByName(out['proxy-groups'], 'AI').proxies.includes('🇭🇰 香港 A'), 'AI 组应含全部节点');
     }),
   );
-  h.test('屏蔽国外QUIC 开关：true 生成 / false 移除 QUIC 规则与 cn_additional', () => {
-    // true（默认）→ 生成 cn_additional 规则集
-    h.assert(api.main(fx.minimalSubscription())['rule-providers'].cn_additional, 'cn_additional 规则集应生成');
-    // false → 移除 QUIC 规则与 cn_additional，cn 规则集保留
-    withOptions(api, { 屏蔽国外QUIC: false }, () => {
+  h.test('屏蔽代理QUIC流量：默认关闭，开启拦截非国内 UDP/443，关闭后移除', () => {
+    const quicRule =
+      'AND,((NETWORK,UDP),(DST-PORT,443),(NOT,((OR,((RULE-SET,cn),(RULE-SET,cn_ip,no-resolve)))))),REJECT';
+    const before = api.main(fx.minimalSubscription());
+    h.assertEqual(api.ruleOptionsEnable.屏蔽代理QUIC流量, false, '上游默认关闭 QUIC 阻断');
+    h.assert(!before.rules.includes(quicRule), '默认不应阻断 QUIC');
+    withOptions(api, { 屏蔽代理QUIC流量: true }, () => {
       const out = api.main(fx.minimalSubscription());
-      h.assert(!out.rules.some((r) => r.includes('DST-PORT,443') && r.includes('REJECT')), '不应含 QUIC 规则');
-      h.assert(!out['rule-providers'].cn_additional, 'cn_additional 规则集不应生成');
-      h.assert(out['rule-providers'].cn, 'cn 规则集仍应生成（供 nameserver-policy 使用）');
+      h.assertEqual(out.rules.filter((r) => r === quicRule).length, 1, '开启后应生成一条国外 QUIC 阻断规则');
+      h.assert(out['rule-providers'].cn, '应保留 cn 域名规则集');
+      h.assert(out['rule-providers'].cn_ip, '应保留 cn_ip IP 规则集');
+      h.assert(!out['rule-providers'].cn_additional, '新版上游不应依赖旧 cn_additional 规则集');
     });
+    const after = api.main(fx.minimalSubscription());
+    h.assert(!after.rules.includes(quicRule), '关闭后应移除 QUIC 阻断规则');
   });
   h.test('关闭 AI 分流组 → 移除组/规则/规则集', () =>
     withOptions(api, { AI: false }, () => {
