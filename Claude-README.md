@@ -2,7 +2,8 @@
 - 原始上游：AIsouler/MyClash；每日 03:23 UTC 更新，两份脚本使用同一 MyClash 上游 SHA，同时获取最新 Anthropic 域名清单；不认识的域名条目格式会让构建失败而非静默跳过。
 - 全量 Raw：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js
 - 精简 Raw：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
-- Sentry 与 Datadog → REJECT（全局规则，可能影响其他软件）。
+- Sentry 与 `datadoghq.eu` → REJECT；**`datadoghq.com` → `Claude固定出口`**（`DOMAIN-SUFFIX`，覆盖根域名与所有子域名，包括 `http-intake.logs.us5.datadoghq.com`）。此域名是 Datadog 共享服务，可能影响其他应用的日志流量；按用户要求进行整域名分流。
+- `anthropic.com`、`claude.ai`、`claudeusercontent.com` 同样使用 `DOMAIN-SUFFIX`，包括 `api.anthropic.com`、`downloads.claude.ai`、`bridge.claudeusercontent.com`。
 - Claude / Anthropic：每天从 `v2fly/domain-list-community/data/anthropic` 拉取全量域名，生成显式规则；另使用 MetaCubeX 的 `anthropic.mrs`（24 小时刷新）补充新域名。**两层规则都排在原版 AI 分组之前**。
 - 上游 `category-ai-!cn` 数据集仍包含 Anthropic，但由于优先命中 Claude 规则，实际流量不会再按普通 AI 分流。对完全未知、尚未收录的域名无法保证。
 - Sift、GrowthBook → Claude固定出口。
