@@ -157,6 +157,26 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
+  // Test the published result, not just the injection source: only inbound
+  // Anthropic IPv4 ranges are destination routes. Outbound ranges are for
+  // Anthropic-initiated traffic and should not widen client-side routing.
+  const inboundIpv4 = [
+    'IP-CIDR,160.79.104.0/23,Claude固定出口,no-resolve',
+    'IP-CIDR,153.61.224.0/22,Claude固定出口,no-resolve',
+  ];
+  for (const rule of inboundIpv4) {
+    assert.ok(cfg.rules.includes(rule), file + ': missing inbound Claude IPv4 ' + rule);
+    assert.ok(
+      cfg.rules.indexOf(rule) < cfg.rules.indexOf('PROCESS-NAME,claude.exe,Claude固定出口'),
+      file + ': inbound IP route should precede process fallback',
+    );
+  }
+  for (const outbound of ['160.79.104.0/21', '153.61.208.0/20']) {
+    assert.ok(
+      !cfg.rules.includes('IP-CIDR,' + outbound + ',Claude固定出口,no-resolve'),
+      file + ': outbound Anthropic source IP wrongly used as destination route ' + outbound,
+    );
+  }
   // Shared third-party domains must not be globally hijacked.
   const aiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
   for (const rule of ['DOMAIN,anthropic-com.ghost.io,Claude固定出口', 'PROCESS-NAME,claude.exe,Claude固定出口']) {

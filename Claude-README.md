@@ -11,7 +11,7 @@
 - 增加 `DOMAIN,anthropic-com.ghost.io` 专属第三方主机；保留 `anthropic.auth0.com` 和 CDN 规则。
 - Windows 原生 CLI 额外使用 `PROCESS-NAME,claude.exe,Claude固定出口`，在 Mihomo 能识别进程时捕获未知域名；不覆盖浏览器、子进程、本地网关或未被接管流量。会将 Claude 进程访问的其他网站也送到该组。
 - 不全局劫持 `storage.googleapis.com`、`raw.githubusercontent.com`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享域名，以免影响其他应用。
-- `160.79.104.0/21` 是 Anthropic 官方公布的服务器出站 IP 池，非用户访问 Claude 的全部目标地址；仍保留此原有 IP 兜底。详见官方 https://platform.claude.com/docs/en/api/ip-addresses
+- Claude 的 **入站（用户连接 Anthropic 服务的目标）IPv4** 使用 `160.79.104.0/23`、`153.61.224.0/22` 两条 `IP-CIDR,…,Claude固定出口,no-resolve` 规则；官方另列的 **出站（Anthropic 主动请求外部服务的来源）IPv4** `160.79.104.0/21`、`153.61.208.0/20` 不应被误用作客户端目标 IP 兜底。完整清单：https://platform.claude.com/docs/en/api/ip-addresses。该 IP 列表在 Fork 中静态维护，官方有增减时需复核；域名列表每日自动更新。
 - 路由不能保证隐藏真实位置或账号不被风控；实际效果必须查连接日志及所选出口。
 - Claude固定出口只列出识别到的台湾具体节点、`台湾` 和 `台湾-自动选择`；默认 `REJECT`，无台湾节点时只有 `REJECT`。`台湾-自动选择` 使用 `url-test`，可能更换所选台湾出口；需要固定节点请直接选择一个台湾具体节点。
 - 不生成 `fallback` / `故障转移` 节点组，其他地区分组沿用原版手动选择与自动选择。若希望硬固定节点，可在 claude-route.json 中填写 MyClash 标准化后的台湾节点全名；节点消失或非台湾节点会拒绝连接，不自动切换到其他地区。

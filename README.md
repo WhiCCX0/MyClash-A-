@@ -27,7 +27,7 @@
 > - Claude Code 官方 [网络端点说明](https://code.claude.com/docs/en/network-config) 包含 `api.anthropic.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`downloads.claude.ai`、`bridge.claudeusercontent.com`；这些都被现有 Claude 域名后缀规则覆盖，无需重复。
 > - `storage.googleapis.com`、`raw.githubusercontent.com`、`registry.npmjs.org`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享主机/服务**没有全局加入**，避免将无关应用也送入 Claude 出口；若特定登录流程需要共享域名同出口，应在连接日志确认后做有范围的单独处理。
 > - 原版配置使用 `find-process-mode: strict`。Windows 原生 `claude.exe` 进程兜底依赖 Mihomo 获取进程信息，可能不会覆盖 HTTP 代理入口、代理网关、Claude 启动的浏览器和 MCP 子进程；它也会把**该进程发起的非 Claude 网站访问**送往 Claude 组。
-> - Anthropic 的[入站 IPv4](https://platform.claude.com/docs/en/api/ip-addresses) 是 `160.79.104.0/23`，其公布的 `160.79.104.0/21` 是**Anthropic 服务端出站源地址池**；不能将服务端源地址等同于用户连接必达的目标地址。当前规则保留已有的 `/21` 兜底，仅匹配目标 IP，并不保证所有 CDN IP 都能归到 Claude。
+> - Anthropic 官方[入站 IPv4](https://platform.claude.com/docs/en/api/ip-addresses) 为 `160.79.104.0/23`、`153.61.224.0/22`，已加入 `Claude固定出口` 的 `IP-CIDR` 目标规则；官方出站 IPv4 `160.79.104.0/21`、`153.61.208.0/20` 是**Anthropic 主动请求第三方时的源地址**，不再将它们当作客户端目标 IP 兜底。域名优先于 IP 路由，未解析的域名也不保证全部匹配 IP 规则。IP 变化需复核官方文档；规则生成继续跟随上游同步。
 > - 代理分流无法掩盖服务端经正常 HTTPS 连接观察到的出口 IP，也无法证明账号风控仅依赖 IP。**本配置不保证规避账号封禁或地区资格检查。**
 
 > **Claude 与 AI 的匹配优先级：** 上游 `category-ai-!cn` 数据集仍包含 Anthropic 域名（未篡改原版数据），但本 Fork 的**完整 Claude 域名规则与 `anthropic.mrs` 先于 `RULE-SET,ai,AI` 匹配**。因此已知 Anthropic 域名会实际进入 `Claude固定出口`，而不是 AI。未来新增域名取决于域名清单及规则集是否及时更新；无法对未知域名作绝对保证。

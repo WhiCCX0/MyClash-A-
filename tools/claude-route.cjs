@@ -64,7 +64,10 @@ const ROUTE = [
   'DOMAIN-SUFFIX,siftscience.com,Claude固定出口',
   'DOMAIN-SUFFIX,sift.com,Claude固定出口',
   'DOMAIN-SUFFIX,growthbook.io,Claude固定出口',
-  'IP-CIDR,160.79.104.0/21,Claude固定出口,no-resolve',
+  // Anthropic inbound IPv4 destinations (client -> Anthropic).
+  // Do not substitute outbound /21 and /20, which are source IPs for Anthropic-initiated calls.
+  'IP-CIDR,160.79.104.0/23,Claude固定出口,no-resolve',
+  'IP-CIDR,153.61.224.0/22,Claude固定出口,no-resolve',
   'IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve',
   'IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve',
   'IP-ASN,399358,Claude固定出口,no-resolve',
