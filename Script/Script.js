@@ -1636,7 +1636,12 @@ const ANTHROPIC_RULES = [
   'DOMAIN-SUFFIX,claudestudio.com,Claude固定出口',
   'DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口',
 ];
-const BLOCK = ['DOMAIN-SUFFIX,sentry.io,REJECT', 'DOMAIN-SUFFIX,datadoghq.eu,REJECT'];
+const BLOCK = [
+  'DOMAIN-SUFFIX,sentry.io,REJECT',
+  'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
+  'DOMAIN-SUFFIX,ab.chatgpt.com,REJECT',
+  'DOMAIN-SUFFIX,oaistatsig.com,REJECT',
+];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
   'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
