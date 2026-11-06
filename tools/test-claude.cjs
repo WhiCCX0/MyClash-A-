@@ -136,10 +136,7 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.eu,REJECT'));
   // The fork's REJECT exceptions must survive regeneration of both scripts.
   // Keep the narrower ChatGPT experiment host instead of rejecting chatgpt.com.
-  const forkRejects = [
-    'DOMAIN-SUFFIX,ab.chatgpt.com,REJECT',
-    'DOMAIN-SUFFIX,oaistatsig.com,REJECT',
-  ];
+  const forkRejects = ['DOMAIN-SUFFIX,ab.chatgpt.com,REJECT', 'DOMAIN-SUFFIX,oaistatsig.com,REJECT'];
   assert.deepEqual(Array.from(cfg.rules.slice(0, BLOCK.length)), Array.from(BLOCK), file + ': fork REJECT ordering');
   for (const rule of forkRejects) {
     assert.ok(BLOCK.includes(rule), file + ': missing maintained reject rule ' + rule);
