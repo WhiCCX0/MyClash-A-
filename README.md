@@ -14,7 +14,8 @@
 | **Anthropic 专属第三方主机** | 增加精确规则 `anthropic-com.ghost.io`；认证主机 `anthropic.auth0.com` 和 Claude CDN 专属主机继续保留 |
 | Sift（`siftscience.com`、`sift.com`）和 GrowthBook（`growthbook.io`） | 与 Claude 采用同一策略组 |
 | Sentry（`sentry.io`） | `REJECT` |
-| Datadog（`datadoghq.com`、`datadoghq.eu` 及含 `datadoghq` 的域名） | `REJECT` |
+| Datadog EU（`datadoghq.eu`） | `REJECT`；`datadoghq.com` 整域名则按用户要求走 `Claude固定出口` |
+| OpenAI 指定遥测域名（`ab.chatgpt.com`、`oaistatsig.com`） | `DOMAIN-SUFFIX,…,REJECT`；阻断本域名及子域名，不扩大至整个 `chatgpt.com` |
 | Claude 节点选择 | **只显示台湾节点及 `台湾`、`台湾-自动选择` 组**；默认 `REJECT`；没有台湾节点则保持拒绝连接，不回退到其他地区 |
 | 每日自动同步 | GitHub Actions 每天 **03:23 UTC（北京时间 11:23）** 检查上游，基于同一上游提交重建全量版与精简版 |
 | 构建失败 | 不发布新脚本，保留上次成功版本 |
@@ -31,10 +32,10 @@
 
 > **Claude 与 AI 的匹配优先级：** 上游 `category-ai-!cn` 数据集仍包含 Anthropic 域名（未篡改原版数据），但本 Fork 的**完整 Claude 域名规则与 `anthropic.mrs` 先于 `RULE-SET,ai,AI` 匹配**。因此已知 Anthropic 域名会实际进入 `Claude固定出口`，而不是 AI。未来新增域名取决于域名清单及规则集是否及时更新；无法对未知域名作绝对保证。
 >
-> 如果维护中的域名清单出现构建器不支持的新语法，GitHub Actions 会中止发布，避免静默遗漏。Sentry/Datadog 仍按既有规则优先阻断。
+> 如果维护中的域名清单出现构建器不支持的新语法，GitHub Actions 会中止发布，避免静默遗漏。Sentry、Datadog EU 与指定的 OpenAI 遥测域名按本 Fork 的全局 REJECT 规则优先阻断；Datadog US 则走 Claude 分流。
 >
 > [!IMPORTANT]
-> - **Sentry 和 Datadog 为全局域名阻断规则**，会影响其他使用相同域名的软件，不仅限 Claude。
+> - **Sentry、`datadoghq.eu`、`ab.chatgpt.com` 和 `oaistatsig.com` 为全局 REJECT 规则**，会影响其他使用相同域名的软件；`datadoghq.com` 不阻断而是进入 `Claude固定出口`。这些规则统一维护在 `tools/claude-route.cjs` 的 `BLOCK` 中，由 Fork 同步自动注入两份脚本。
 > - 阻断部分遥测不能保证不出现直连；请在 Bettbox 检查 TUN 实际状态和连接日志。固定节点名称也**不等于固定公网 IP**。
 > - 本配置用于统一已接管流量的路由、减少指定域名的上报，**不能保证避免 Claude 账号封禁**。账号资格与使用地区仍需符合服务商政策。
 

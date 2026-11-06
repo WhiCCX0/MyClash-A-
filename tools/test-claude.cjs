@@ -2,7 +2,7 @@
 const fs = require('node:fs'),
   vm = require('node:vm'),
   assert = require('node:assert/strict');
-const { patch, parseAnthropicSource } = require('./claude-route.cjs');
+const { patch, parseAnthropicSource, BLOCK } = require('./claude-route.cjs');
 const { applyForkHeader } = require('./sync-upstream.cjs');
 const anthropicFixture = [
   '# canonical list',
@@ -134,6 +134,23 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
 
   assert.equal(cfg.rules[0], 'DOMAIN-SUFFIX,sentry.io,REJECT');
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.eu,REJECT'));
+  // The fork's REJECT exceptions must survive regeneration of both scripts.
+  // Keep the narrower ChatGPT experiment host instead of rejecting chatgpt.com.
+  const forkRejects = [
+    'DOMAIN-SUFFIX,ab.chatgpt.com,REJECT',
+    'DOMAIN-SUFFIX,oaistatsig.com,REJECT',
+  ];
+  assert.deepEqual(Array.from(cfg.rules.slice(0, BLOCK.length)), Array.from(BLOCK), file + ': fork REJECT ordering');
+  for (const rule of forkRejects) {
+    assert.ok(BLOCK.includes(rule), file + ': missing maintained reject rule ' + rule);
+    assert.ok(cfg.rules.includes(rule), file + ': missing generated reject rule ' + rule);
+    const claudeAt = cfg.rules.indexOf('DOMAIN-SUFFIX,anthropic.com,Claude固定出口');
+    assert.ok(cfg.rules.indexOf(rule) < claudeAt, file + ': REJECT rule must precede Claude ' + rule);
+    const geminiAt = cfg.rules.indexOf('DOMAIN,gemini.google.com,Gemini Web');
+    assert.ok(geminiAt < 0 || cfg.rules.indexOf(rule) < geminiAt, file + ': REJECT rule must precede Gemini ' + rule);
+  }
+  assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,chatgpt.com,REJECT'), 'Do not reject all ChatGPT');
+  assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,statsigapi.net,REJECT'), 'Do not reject shared Statsig');
   // Claude owns the requested registrable domains, including Datadog US intake.
   // A broad Datadog REJECT would shadow the new Claude rule.
   for (const domain of ['anthropic.com', 'claude.ai', 'claudeusercontent.com', 'datadoghq.com']) {
