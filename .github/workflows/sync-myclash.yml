@@ -28,19 +28,19 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Sync upstream and inject routes
         run: node tools/sync-upstream.cjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Format generated scripts
         run: |
-          npm install -g prettier@3
+          npm install -g prettier@3.9.10
           prettier --write Script/mihomoScript.js Script/Script.js
       - name: Check generated scripts and routing tests
         run: |
@@ -70,7 +70,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           persist-credentials: true
       - name: Download verified scripts

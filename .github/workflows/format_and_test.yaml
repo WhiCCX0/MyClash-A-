@@ -24,64 +24,33 @@ concurrency:
   group: format-and-test-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  format:
-    if: github.event_name != 'pull_request'
-    permissions:
-      contents: write
-
+  verify:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: checkout code
+      - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: Test/package-lock.json
 
-      - name: install tools
-        run: npm install -g prettier@3
+      - name: Install locked test dependencies
+        run: npm ci --prefix Test
 
-      - name: format files
+      - name: Install pinned formatter
+        run: npm install -g prettier@3.9.10
+
+      - name: Check formatting without changing repository files
         run: |
-          git ls-files -z '*.js' '*.cjs' '*.yml' '*.yaml' | xargs -0 -r prettier --write
+          git ls-files -z '*.js' '*.cjs' '*.yml' '*.yaml' | xargs -0 -r prettier --check
 
-      - name: commit and push changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add .
-
-          if git diff --cached --quiet; then
-            echo "no changes to commit"
-          else
-            git commit -m "chore: auto format"
-            git push
-          fi
-
-  test:
-    needs: format
-    if: always() && (needs.format.result == 'success' || needs.format.result == 'skipped')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: checkout code
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.ref || github.ref }}
-          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-          fetch-depth: 0
-
-      - name: setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - name: install dependencies
-        run: npm --prefix Test install
-
-      - name: run tests
+      - name: Run tests
         run: node Test/run-tests.js

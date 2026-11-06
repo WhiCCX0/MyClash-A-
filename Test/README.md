@@ -12,7 +12,7 @@ node Test/run-tests.js
 npm --prefix Test test
 ```
 
-仅需要 Node.js（推荐 ≥ 16）。
+推荐使用 Node.js 24。CI 固定使用 Node.js 24 和锁文件，确保测试依赖可复现。
 
 可按需只运行某一部分（参数可组合）：
 
@@ -27,7 +27,7 @@ node Test/run-tests.js --quickjs  # 仅 QuickJS 引擎验证
 `run-tests.js` 会自动执行两项兼容性验证，分别依赖两个 npm 包，首次使用前安装：
 
 ```bash
-npm --prefix Test install
+npm ci --prefix Test
 ```
 
 - **ES2020 兼容性检查**：用 `espree` 以 `ecmaVersion: 2020` 解析脚本（任何 ES2021+ 语法都会报错），并静态扫描是否使用了 ES2021+ 的内置 API。
@@ -35,7 +35,9 @@ npm --prefix Test install
 - **QuickJS 引擎验证**：用真实 QuickJS 引擎加载脚本并调用 `main()`。
   单独运行：`npm --prefix Test run test:quickjs`（等价于 `node Test/run-tests.js --quickjs`）
 
-任一依赖未安装时，对应部分会自动跳过（不影响其余测试结果）。
+本地缺少依赖时，对应检查会跳过；CI 会先执行 `npm ci --prefix Test`，要求这些检查实际运行，而不是跳过。
+
+`format_and_test` 工作流只读检查格式与测试，不会自动提交或覆盖仓库文件。自动更新发布仍由 `sync-myclash.yml` 验证后负责。
 
 ## 覆盖内容
 
@@ -56,7 +58,7 @@ npm --prefix Test install
 - 节点名含零宽字符（`invisibleCharsSubscription`）：地区识别、信息节点过滤、倍率判断均不受影响；且节点名**不被改写**（不可见字符原样保留，只额外补国旗），dialer-proxy 引用照常同步
 - GLOBAL 策略组聚合所有策略组
 - DNS 与 hosts（`default-nameserver` 与 `proxy-server-nameserver` 分别使用固定公共 DNS；私有 DNS 在无节点专属 policy 时合并写入节点域名 policy、有专属 policy 时优先保留、公共 DNS 过滤；节点域名 policy/fake-ip-filter 保留（节点域名仅取映射后的 server 且排除 IP 类型）、包含 `doh.pub` 在内的默认 hosts 映射，以及 hosts 映射改写 server；仅当 `proxy-server-nameserver` 有且仅有一个条目且包含 `listen` 值，或条目含 `127.0.0.1` 且 `listen` 含 `0.0.0.0` 时才触发改写，未命中时跳过改写）
-- 配置选项开关（过滤高倍率 / 自动选择组 / 隐藏手动组 / 分流组添加所有节点 / QUIC 及 cn_additional 规则集 / 关闭分流组）
+- 配置选项开关（过滤高倍率 / 自动选择组 / 隐藏手动组 / 分流组添加所有节点 / 代理 QUIC 阻断 / 关闭分流组）
 - 自定义节点：未配置时不生成自定义节点组；配置后生成“自建节点”组、重名加“自建-”前缀、不参与 hosts 改写与 DNS 域名处理、默认代理/GLOBAL/手动选择包含自定义节点
 - 异常场景（空节点、仅 DIRECT/REJECT/rematch 类型、全部可过滤节点 → 抛错）
 
