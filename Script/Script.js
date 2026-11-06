@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：b0ea9e41ec6700a7ac4c4e1cb7b7ed0c2b9a1c1a
+ * 构建基于上游提交：633f54ce0696bbc761c1e286551aa6d5d72cce7f
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -49,9 +49,6 @@ const ruleOptionsEnable = {
 
 // 定义前置规则
 const prefixRules = [
-  // 规则集下载域名，避免出现鸡蛋问题
-  'DOMAIN,cdn.jsdmirror.com,直连',
-
   // 私有网络直连
   'RULE-SET,private,直连',
 
@@ -130,10 +127,10 @@ const directProxies = [
 ];
 
 // 图标 URL 公共前缀
-const iconBaseUrl = 'https://cdn.jsdmirror.com/gh/AIsouler/MyClash@main/Icons/svg/';
+const iconBaseUrl = 'https://fastly.jsdelivr.net/gh/AIsouler/MyClash@main/Icons/svg/';
 
 // 规则集 URL 公共前缀
-const ruleSetBaseUrl = 'https://cdn.jsdmirror.com/gh/appshubcc/bett-rules@meta/geo/';
+const ruleSetBaseUrl = 'https://fastly.jsdelivr.net/gh/appshubcc/bett-rules@meta/geo/';
 
 // 定义地区策略组
 const regionDefinitions = [
