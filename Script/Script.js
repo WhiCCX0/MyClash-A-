@@ -1645,6 +1645,8 @@ const BLOCK = [
   'DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT',
   'DOMAIN-SUFFIX,szbdyd.com,REJECT',
   'DOMAIN-SUFFIX,mountaintoys.cn,REJECT',
+  'DOMAIN-SUFFIX,xycdn.com,REJECT',
+  'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT',
 ];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
