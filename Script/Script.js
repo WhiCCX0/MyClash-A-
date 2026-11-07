@@ -1613,6 +1613,8 @@ function main(config) {
 // Shared add-on: upstream MyClash code is otherwise unchanged.
 const PROVIDER = 'myclash_claude_anthropic';
 const ANTHROPIC_RULES = [
+  'DOMAIN,http-intake.logs.us5.datadoghq.com,Claude固定出口',
+  'DOMAIN,o1158394.ingest.us.sentry.io,Claude固定出口',
   'DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口',
   'DOMAIN-SUFFIX,ant.dev,Claude固定出口',
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
