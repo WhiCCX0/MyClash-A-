@@ -161,10 +161,7 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.ok(aiAt < 0 || cfg.rules.indexOf(rule) < aiAt, file + ': REJECT must precede AI ' + rule);
   }
   // Targeted Douyin candidates: no blanket Douyin CDN or Douyu block.
-  const douyinRejects = [
-    'DOMAIN-SUFFIX,xycdn.com,REJECT',
-    'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT',
-  ];
+  const douyinRejects = ['DOMAIN-SUFFIX,xycdn.com,REJECT', 'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT'];
   for (const rule of douyinRejects) {
     assert.ok(BLOCK.includes(rule), file + ': missing maintained Douyin REJECT rule ' + rule);
     assert.equal(
