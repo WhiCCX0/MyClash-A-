@@ -138,6 +138,28 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   // Keep the narrower ChatGPT experiment host instead of rejecting chatgpt.com.
   const forkRejects = ['DOMAIN-SUFFIX,ab.chatgpt.com,REJECT', 'DOMAIN-SUFFIX,oaistatsig.com,REJECT'];
   assert.deepEqual(Array.from(cfg.rules.slice(0, BLOCK.length)), Array.from(BLOCK), file + ': fork REJECT ordering');
+  // Bilibili PCDN: preserve the narrow wildcard, not the entire biliapi.net suffix.
+  const biliRejects = [
+    'DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT',
+    'DOMAIN-SUFFIX,mcdn.bilivideo.cn,REJECT',
+    'DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT',
+    'DOMAIN-SUFFIX,szbdyd.com,REJECT',
+    'DOMAIN-SUFFIX,mountaintoys.cn,REJECT',
+  ];
+  assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,biliapi.net,REJECT'), 'Do not reject all Bilibili API domains');
+  assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,bilivideo.com,REJECT'), 'Do not reject all Bilibili video domains');
+  for (const rule of biliRejects) {
+    assert.ok(BLOCK.includes(rule), file + ': missing maintained Bilibili REJECT rule ' + rule);
+    assert.equal(
+      cfg.rules.filter((entry) => entry === rule).length,
+      1,
+      file + ': duplicated or missing Bilibili REJECT ' + rule,
+    );
+    const claudeAt = cfg.rules.indexOf('DOMAIN-SUFFIX,anthropic.com,Claude固定出口');
+    const aiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
+    assert.ok(claudeAt < 0 || cfg.rules.indexOf(rule) < claudeAt, file + ': REJECT must precede Claude ' + rule);
+    assert.ok(aiAt < 0 || cfg.rules.indexOf(rule) < aiAt, file + ': REJECT must precede AI ' + rule);
+  }
   for (const rule of forkRejects) {
     assert.ok(BLOCK.includes(rule), file + ': missing maintained reject rule ' + rule);
     assert.ok(cfg.rules.includes(rule), file + ': missing generated reject rule ' + rule);

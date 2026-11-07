@@ -46,6 +46,12 @@ const BLOCK = [
   'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
   'DOMAIN-SUFFIX,ab.chatgpt.com,REJECT',
   'DOMAIN-SUFFIX,oaistatsig.com,REJECT',
+  // Bilibili PCDN and specified domains; keep the narrow wildcard, not the entire biliapi.net.
+  'DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT',
+  'DOMAIN-SUFFIX,mcdn.bilivideo.cn,REJECT',
+  'DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT',
+  'DOMAIN-SUFFIX,szbdyd.com,REJECT',
+  'DOMAIN-SUFFIX,mountaintoys.cn,REJECT',
 ];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
