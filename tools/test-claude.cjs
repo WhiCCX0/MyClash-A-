@@ -160,6 +160,29 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.ok(claudeAt < 0 || cfg.rules.indexOf(rule) < claudeAt, file + ': REJECT must precede Claude ' + rule);
     assert.ok(aiAt < 0 || cfg.rules.indexOf(rule) < aiAt, file + ': REJECT must precede AI ' + rule);
   }
+  // Targeted Douyin candidates: no blanket Douyin CDN or Douyu block.
+  const douyinRejects = [
+    'DOMAIN-SUFFIX,xycdn.com,REJECT',
+    'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT',
+  ];
+  for (const rule of douyinRejects) {
+    assert.ok(BLOCK.includes(rule), file + ': missing maintained Douyin REJECT rule ' + rule);
+    assert.equal(
+      cfg.rules.filter((item) => item === rule).length,
+      1,
+      file + ': absent or duplicate Douyin REJECT ' + rule,
+    );
+    const claudeAt = cfg.rules.indexOf('DOMAIN-SUFFIX,anthropic.com,Claude固定出口');
+    const geminiAt = cfg.rules.indexOf('DOMAIN,gemini.google.com,Gemini Web');
+    assert.ok(claudeAt < 0 || cfg.rules.indexOf(rule) < claudeAt, file + ': Douyin REJECT must precede Claude');
+    assert.ok(geminiAt < 0 || cfg.rules.indexOf(rule) < geminiAt, file + ': Douyin REJECT must precede Gemini');
+  }
+  for (const tooBroad of [
+    'DOMAIN-SUFFIX,douyincdn.com,REJECT',
+    'DOMAIN-SUFFIX,douyinvod.com,REJECT',
+    'DOMAIN-SUFFIX,douyucdn.cn,REJECT',
+  ])
+    assert.ok(!BLOCK.includes(tooBroad), file + ': too broad Douyin/Douyu block ' + tooBroad);
   for (const rule of forkRejects) {
     assert.ok(BLOCK.includes(rule), file + ': missing maintained reject rule ' + rule);
     assert.ok(cfg.rules.includes(rule), file + ': missing generated reject rule ' + rule);

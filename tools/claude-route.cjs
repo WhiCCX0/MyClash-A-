@@ -52,6 +52,10 @@ const BLOCK = [
   'DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT',
   'DOMAIN-SUFFIX,szbdyd.com,REJECT',
   'DOMAIN-SUFFIX,mountaintoys.cn,REJECT',
+  // Douyin candidates: xycdn.com is listed in PCDN blocklists, but may also serve normal media.
+  // The flive hostname is an exact live-pull endpoint; intentionally avoid blocking all douyincdn.com.
+  'DOMAIN-SUFFIX,xycdn.com,REJECT',
+  'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT',
 ];
 const ROUTE = [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
