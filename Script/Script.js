@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：633f54ce0696bbc761c1e286551aa6d5d72cce7f
+ * 构建基于上游提交：4a8f61981f0d3a2c1928498b6dce4ed11f1d4f0e
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -1511,10 +1511,6 @@ function buildDnsAndHostsConfig(config, filteredProxies) {
  * 主入口：覆写机场订阅配置，生成完整 mihomo 配置
  */
 function main(config) {
-  if (config['proxy-providers'] && Object.keys(config['proxy-providers']).length > 0) {
-    throw new Error('配置文件中包含 proxy-providers，请使用机场提供的配置文件进行覆写');
-  }
-
   const newConfig = {};
 
   const filteredProxies = filterAndNormalizeProxies(config);
