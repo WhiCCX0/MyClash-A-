@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：4a8f61981f0d3a2c1928498b6dce4ed11f1d4f0e
+ * 构建基于上游提交：4861619be366c7bacabfed6d581bb8c450de1ca1
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -300,10 +300,8 @@ const baseRuleProviders = {
 
 // 策略组公共配置
 const groupBaseOption = {
-  interval: 600,
-  timeout: 3000,
+  timeout: 5000,
   url: 'https://www.apple.com/library/test/success.html',
-  lazy: true,
   'max-failed-times': 3,
   'empty-fallback': 'REJECT',
 };
@@ -318,6 +316,8 @@ const selectBaseOption = {
 const urlTestBaseOption = {
   ...groupBaseOption,
   type: 'url-test',
+  interval: 600,
+  lazy: true,
   tolerance: 50,
   'exclude-type': 'DIRECT',
   icon: `${iconBaseUrl}Auto.svg`,
@@ -431,6 +431,7 @@ const serviceConfigs = [
     name: 'AdBlock',
     baseOption: selectBaseOption,
     reject: true,
+    priority: true,
     providers: {
       'category-ads': {
         ...ruleProviderCommonDomain,
@@ -622,16 +623,16 @@ function createRegionGroup(name, icon, proxies) {
     const urlTestName = `${name}-自动选择`;
     return [
       {
-        ...urlTestBaseOption,
-        name: urlTestName,
-        proxies,
-      },
-      {
         ...selectBaseOption,
         name,
         icon,
         proxies: [...proxies, urlTestName],
         hidden: hideManualSelectGroupEnabled,
+      },
+      {
+        ...urlTestBaseOption,
+        name: urlTestName,
+        proxies,
       },
     ];
   }
@@ -751,6 +752,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
   const functionalGroups = [];
   const functionalRules = [];
   const functionalIpRules = [];
+  const priorityRules = [];
   const finalRuleProviders = { ...baseRuleProviders };
 
   const { customProxyNames = [], customGroup = null } = customizeInfo || {};
@@ -815,6 +817,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
       functionalGroups: [defaultGroup, ...(autoSelectGroupEnabled ? [autoSelectGroup] : [])],
       functionalRules: [],
       functionalIpRules: [],
+      priorityRules: [],
       finalRuleProviders,
       chainGroup,
       directGroup,
@@ -828,14 +831,10 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
     icon: `${iconBaseUrl}Proxy.svg`,
   });
 
-  const orderedServiceConfigs = [
-    ...serviceConfigs.filter((svc) => svc.name === 'AdBlock'),
-    ...serviceConfigs.filter((svc) => svc.name !== 'AdBlock'),
-  ];
-  for (const svc of orderedServiceConfigs) {
+  for (const svc of serviceConfigs) {
     if (!ruleOptionsEnable[svc.name]) continue;
 
-    functionalRules.push(...(svc.rules || []));
+    (svc.priority ? priorityRules : functionalRules).push(...(svc.rules || []));
     functionalIpRules.push(...(svc.ipRules || []));
     Object.assign(finalRuleProviders, svc.providers || {});
   }
@@ -843,26 +842,20 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
   for (const svc of serviceConfigs) {
     if (!ruleOptionsEnable[svc.name]) continue;
 
-    let groupProxies = [];
-    if (svc.includeAll) {
-      groupProxies = [...allProxiesNames];
-    } else if (svc.reject) {
-      groupProxies = ['REJECT', 'REJECT-DROP', 'PASS'];
-    } else {
-      groupProxies = !addAllNodesToServiceGroupsEnabled
-        ? ['默认代理', ...customGroupNames, ...baseGroupNames, ...groupNamesOfSelect, ...(svc.direct ? ['直连'] : [])]
+    const groupProxies = svc.includeAll
+      ? [...allProxiesNames]
+      : svc.reject
+        ? ['REJECT', 'REJECT-DROP', 'PASS']
         : [
             '默认代理',
             ...customGroupNames,
             ...baseGroupNames,
             ...groupNamesOfSelect,
-            ...allProxiesNames,
+            ...(addAllNodesToServiceGroupsEnabled ? allProxiesNames : []),
             ...(svc.direct ? ['直连'] : []),
           ];
-    }
 
-    const selected =
-      svc.defaultSelected !== undefined && groupProxies.includes(svc.defaultSelected) ? svc.defaultSelected : undefined;
+    const selected = groupProxies.includes(svc.defaultSelected) ? svc.defaultSelected : undefined;
 
     functionalGroups.push({
       ...svc.baseOption,
@@ -906,6 +899,7 @@ function buildFunctionalGroups(filteredProxies, generatedRegionGroups, customize
     functionalGroups,
     functionalRules,
     functionalIpRules,
+    priorityRules,
     finalRuleProviders,
     chainGroup,
     directGroup,
@@ -1480,7 +1474,7 @@ function buildDnsAndHostsConfig(config, filteredProxies) {
     nameserver: foreignDNS,
     'nameserver-policy': {
       'rule-set:private': 'system',
-      'rule-set:douyin': ['180.184.1.1', '180.184.2.2'],
+      'rule-set:douyin': ['180.184.1.1#DIRECT', '180.184.2.2#DIRECT'],
       'rule-set:cn': chinaDNS,
     },
     'direct-nameserver': chinaDNS,
@@ -1526,6 +1520,7 @@ function main(config) {
     functionalGroups,
     functionalRules,
     functionalIpRules,
+    priorityRules,
     finalRuleProviders,
     chainGroup,
     directGroup,
@@ -1585,15 +1580,14 @@ function main(config) {
   newConfig['rule-providers'] = finalRuleProviders;
 
   newConfig['rules'] = [
+    ...priorityRules,
     ...prefixRules,
     ...(ruleOptionsEnable.屏蔽代理QUIC流量 ? blockForeignQuic : []),
     ...functionalRules,
     'RULE-SET,geolocation-!cn,默认代理',
-    ...functionalIpRules,
-
-    // 兜底规则
     'RULE-SET,cn_ip,直连',
     'RULE-SET,private_ip,直连',
+    ...functionalIpRules,
     `MATCH,${ruleOptionsEnable.极简国内外分流模式 ? '默认代理' : '漏网之鱼'}`,
   ];
 
