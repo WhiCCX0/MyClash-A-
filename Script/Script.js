@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/Script.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：f888a03f1418153924fd9ffd99df2e8b459af596
+ * 构建基于上游提交：858e336f91ef5bdea9df9fe8d80d69e172b49364
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
