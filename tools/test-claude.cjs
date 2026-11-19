@@ -200,11 +200,7 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
   // Shared third-party services: route only the three exact hosts before generic AI.
-  const thirdPartyExact = [
-    'api-iam.intercom.io',
-    'nexus-websocket-a.intercom.io',
-    'browser-intake-us5-datadoghq.com',
-  ];
+  const thirdPartyExact = ['api-iam.intercom.io', 'nexus-websocket-a.intercom.io', 'browser-intake-us5-datadoghq.com'];
   const intercomAt = cfg.rules.indexOf('DOMAIN-SUFFIX,intercom.io,AI');
   const genericAiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
   for (const host of thirdPartyExact) {
