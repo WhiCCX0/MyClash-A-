@@ -67,6 +67,10 @@ const ROUTE = [
   // Entire registrable domain, not just http-intake.logs.us5.datadoghq.com.
   'DOMAIN-SUFFIX,datadoghq.com,Claude固定出口',
   'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
+  // Exact third-party Claude web endpoints; do not redirect their shared parent domains.
+  'DOMAIN,api-iam.intercom.io,Claude固定出口',
+  'DOMAIN,nexus-websocket-a.intercom.io,Claude固定出口',
+  'DOMAIN,browser-intake-us5-datadoghq.com,Claude固定出口',
   'DOMAIN,anthropic.auth0.com,Claude固定出口',
   'DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口',
   // Anthropic-branded Ghost CMS host; use exact hostname, not the shared ghost.io suffix.

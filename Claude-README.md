@@ -9,8 +9,9 @@
 - 上游 `category-ai-!cn` 数据集仍包含 Anthropic，但由于优先命中 Claude 规则，实际流量不会再按普通 AI 分流。对完全未知、尚未收录的域名无法保证。
 - Sift、GrowthBook → Claude固定出口。
 - 增加 `DOMAIN,anthropic-com.ghost.io` 专属第三方主机；保留 `anthropic.auth0.com` 和 CDN 规则。
+- 按需精确分流 `api-iam.intercom.io`、`nexus-websocket-a.intercom.io`、`browser-intake-us5-datadoghq.com` 到 `Claude固定出口`，优先于通用 AI 规则；仅匹配这些完整主机名，不扩展至整个 Intercom/Datadog 共享域名。若其他应用使用同一主机，其流量也会受影响。
 - Windows 原生 CLI 额外使用 `PROCESS-NAME,claude.exe,Claude固定出口`，在 Mihomo 能识别进程时捕获未知域名；不覆盖浏览器、子进程、本地网关或未被接管流量。会将 Claude 进程访问的其他网站也送到该组。
-- 不全局劫持 `storage.googleapis.com`、`raw.githubusercontent.com`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享域名，以免影响其他应用。
+- 不整域劫持 `storage.googleapis.com`、`raw.githubusercontent.com`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享域名，以免影响其他应用；三条精确第三方主机规则是明确例外。`r.stripe.com`、`fcmtoken.googleapis.com`、`34.8.0.0/16` 和原有 Sentry REJECT 均不改动。
 - Claude 的 **入站（用户连接 Anthropic 服务的目标）IPv4** 使用 `160.79.104.0/23`、`153.61.224.0/22` 两条 `IP-CIDR,…,Claude固定出口,no-resolve` 规则；官方另列的 **出站（Anthropic 主动请求外部服务的来源）IPv4** `160.79.104.0/21`、`153.61.208.0/20` 不应被误用作客户端目标 IP 兜底。完整清单：https://platform.claude.com/docs/en/api/ip-addresses。该 IP 列表在 Fork 中静态维护，官方有增减时需复核；域名列表每日自动更新。
 - 路由不能保证隐藏真实位置或账号不被风控；实际效果必须查连接日志及所选出口。
 - Claude固定出口只列出识别到的台湾具体节点、`台湾` 和 `台湾-自动选择`；默认 `REJECT`，无台湾节点时只有 `REJECT`。`台湾-自动选择` 使用 `url-test`，可能更换所选台湾出口；需要固定节点请直接选择一个台湾具体节点。

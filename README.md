@@ -12,6 +12,7 @@
 | **Claude / Anthropic 完整域名分流** | 每日读取 [domain-list-community 的 Anthropic 域名清单](https://github.com/v2fly/domain-list-community/blob/master/data/anthropic)，生成逐域名优先规则；并加载 [MetaCubeX 的 `anthropic.mrs`](https://github.com/MetaCubeX/meta-rules-dat/tree/meta) 自动更新规则集，均指向 **Claude固定出口** |
 | **Claude Code Windows 进程兜底** | 新增 `PROCESS-NAME,claude.exe,Claude固定出口`，仅在 Mihomo 能识别程序来源时生效；用于捕获 CLI 访问尚未列入域名库的目标，**不会覆盖独立子进程或网页浏览器** |
 | **Anthropic 专属第三方主机** | 增加精确规则 `anthropic-com.ghost.io`；认证主机 `anthropic.auth0.com` 和 Claude CDN 专属主机继续保留 |
+| **Claude 网页第三方候选端点（精确匹配）** | `api-iam.intercom.io`、`nexus-websocket-a.intercom.io`、`browser-intake-us5-datadoghq.com` → `Claude固定出口`；不劫持整个 `intercom.io` 或其他共享服务 |
 | Sift（`siftscience.com`、`sift.com`）和 GrowthBook（`growthbook.io`） | 与 Claude 采用同一策略组 |
 | Sentry（`sentry.io`） | `REJECT` |
 | Datadog EU（`datadoghq.eu`） | `REJECT`；`datadoghq.com` 整域名则按用户要求走 `Claude固定出口` |
@@ -27,7 +28,7 @@
 > [!IMPORTANT]
 > **规则覆盖范围与风险说明（2026-10-29 联网核查）**
 > - Claude Code 官方 [网络端点说明](https://code.claude.com/docs/en/network-config) 包含 `api.anthropic.com`、`platform.claude.com`、`mcp-proxy.anthropic.com`、`downloads.claude.ai`、`bridge.claudeusercontent.com`；这些都被现有 Claude 域名后缀规则覆盖，无需重复。
-> - `storage.googleapis.com`、`raw.githubusercontent.com`、`registry.npmjs.org`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享主机/服务**没有全局加入**，避免将无关应用也送入 Claude 出口；若特定登录流程需要共享域名同出口，应在连接日志确认后做有范围的单独处理。
+> - `storage.googleapis.com`、`raw.githubusercontent.com`、`registry.npmjs.org`、`statsigapi.net`、`intercom.io`、`challenges.cloudflare.com`、`hcaptcha.com` 等共享主机/服务**没有整域名加入**，避免将无关应用也送入 Claude 出口；仅将上表三个具体主机单独指定为 Claude 出口，它们仍属于第三方共享服务，可能影响其他软件使用相同主机的流量。
 > - 原版配置使用 `find-process-mode: strict`。Windows 原生 `claude.exe` 进程兜底依赖 Mihomo 获取进程信息，可能不会覆盖 HTTP 代理入口、代理网关、Claude 启动的浏览器和 MCP 子进程；它也会把**该进程发起的非 Claude 网站访问**送往 Claude 组。
 > - Anthropic 官方[入站 IPv4](https://platform.claude.com/docs/en/api/ip-addresses) 为 `160.79.104.0/23`、`153.61.224.0/22`，已加入 `Claude固定出口` 的 `IP-CIDR` 目标规则；官方出站 IPv4 `160.79.104.0/21`、`153.61.208.0/20` 是**Anthropic 主动请求第三方时的源地址**，不再将它们当作客户端目标 IP 兜底。域名优先于 IP 路由，未解析的域名也不保证全部匹配 IP 规则。IP 变化需复核官方文档；规则生成继续跟随上游同步。
 > - 代理分流无法掩盖服务端经正常 HTTPS 连接观察到的出口 IP，也无法证明账号风控仅依赖 IP。**本配置不保证规避账号封禁或地区资格检查。**

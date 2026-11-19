@@ -199,6 +199,28 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
+  // Shared third-party services: route only the three exact hosts before generic AI.
+  const thirdPartyExact = [
+    'api-iam.intercom.io',
+    'nexus-websocket-a.intercom.io',
+    'browser-intake-us5-datadoghq.com',
+  ];
+  const intercomAt = cfg.rules.indexOf('DOMAIN-SUFFIX,intercom.io,AI');
+  const genericAiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
+  for (const host of thirdPartyExact) {
+    const rule = 'DOMAIN,' + host + ',Claude固定出口';
+    const at = cfg.rules.indexOf(rule);
+    assert.ok(at >= 0, file + ': missing exact third-party Claude route ' + rule);
+    assert.equal(cfg.rules.filter((r) => r === rule).length, 1, file + ': duplicate third-party route ' + rule);
+    assert.ok(genericAiAt < 0 || at < genericAiAt, file + ': third-party host routed after AI ' + rule);
+    assert.ok(intercomAt < 0 || at < intercomAt, file + ': Intercom AI suffix shadows Claude ' + rule);
+    assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + host + ',Claude固定出口'), file + ': avoid subdomain capture ' + host);
+  }
+  for (const shared of ['intercom.io', 'stripe.com', 'googleapis.com', 'sentry.io']) {
+    assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + shared + ',Claude固定出口'), file + ': overbroad Claude ' + shared);
+  }
+  assert.ok(!cfg.rules.includes('IP-CIDR,34.8.0.0/16,Claude固定出口,no-resolve'));
+  assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,sentry.io,REJECT'));
   // Test the published result, not just the injection source: only inbound
   // Anthropic IPv4 ranges are destination routes. Outbound ranges are for
   // Anthropic-initiated traffic and should not widen client-side routing.
