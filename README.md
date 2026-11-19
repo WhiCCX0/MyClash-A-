@@ -12,10 +12,12 @@
 | **Claude / Anthropic 完整域名分流** | 每日读取 [domain-list-community 的 Anthropic 域名清单](https://github.com/v2fly/domain-list-community/blob/master/data/anthropic)，生成逐域名优先规则；并加载 [MetaCubeX 的 `anthropic.mrs`](https://github.com/MetaCubeX/meta-rules-dat/tree/meta) 自动更新规则集，均指向 **Claude固定出口** |
 | **Claude Code Windows 进程兜底** | 新增 `PROCESS-NAME,claude.exe,Claude固定出口`，仅在 Mihomo 能识别程序来源时生效；用于捕获 CLI 访问尚未列入域名库的目标，**不会覆盖独立子进程或网页浏览器** |
 | **Anthropic 专属第三方主机** | 增加精确规则 `anthropic-com.ghost.io`；认证主机 `anthropic.auth0.com` 和 Claude CDN 专属主机继续保留 |
-| **Claude 网页第三方候选端点（精确匹配）** | `api-iam.intercom.io`、`nexus-websocket-a.intercom.io`、`browser-intake-us5-datadoghq.com` → `Claude固定出口`；不劫持整个 `intercom.io` 或其他共享服务 |
+| **Claude 网页第三方候选端点（精确匹配）** | `api-iam.intercom.io`、`nexus-websocket-a.intercom.io` → `Claude固定出口`；不劫持整个 `intercom.io` |
 | Sift（`siftscience.com`、`sift.com`）和 GrowthBook（`growthbook.io`） | 与 Claude 采用同一策略组 |
+| **非 Claude 网站固定出口** | `javdb.com` 及子域名使用 `Claude固定出口`，沿用同一节点选择及默认 REJECT 策略 |
+| **精确遥测拦截** | `api.segment.io`、`cdn.usefathom.com`、`browser-intake-us5-datadoghq.com`、`http-intake.logs.us5.datadoghq.com` → `REJECT`；不阻断整站 Segment/Fathom/Datadog |
 | Sentry（`sentry.io`） | `REJECT` |
-| Datadog EU（`datadoghq.eu`） | `REJECT`；`datadoghq.com` 整域名则按用户要求走 `Claude固定出口` |
+| Datadog EU（`datadoghq.eu`） | `REJECT`；`datadoghq.com` 默认走 `Claude固定出口`，但其中 `http-intake.logs.us5.datadoghq.com` 被更早的精确 `REJECT` 覆盖 |
 | OpenAI 指定遥测域名（`ab.chatgpt.com`、`oaistatsig.com`） | `DOMAIN-SUFFIX,…,REJECT`；阻断本域名及子域名，不扩大至整个 `chatgpt.com` |
 | Bilibili 指定 PCDN/域名 | `DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT`，以及 `mcdn.bilivideo.cn`、`mcdn.bilivideo.com`、`szbdyd.com`、`mountaintoys.cn` 的 `DOMAIN-SUFFIX` 拦截；不阻断整个 `biliapi.net` 或 `bilivideo.com` |
 | 抖音相关候选域名（按用户要求） | `DOMAIN-SUFFIX,xycdn.com,REJECT`（通用 PCDN 黑名单也收录，可能承载正常流量）；`DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT`（仅精确主机，属于直播拉流地址，**可能导致部分直播无法加载**）；不阻断整个 `douyincdn.com`、`douyinvod.com` |
@@ -35,10 +37,10 @@
 
 > **Claude 与 AI 的匹配优先级：** 上游 `category-ai-!cn` 数据集仍包含 Anthropic 域名（未篡改原版数据），但本 Fork 的**完整 Claude 域名规则与 `anthropic.mrs` 先于 `RULE-SET,ai,AI` 匹配**。因此已知 Anthropic 域名会实际进入 `Claude固定出口`，而不是 AI。未来新增域名取决于域名清单及规则集是否及时更新；无法对未知域名作绝对保证。
 >
-> 如果维护中的域名清单出现构建器不支持的新语法，GitHub Actions 会中止发布，避免静默遗漏。Sentry、Datadog EU 与指定的 OpenAI 遥测域名按本 Fork 的全局 REJECT 规则优先阻断；Datadog US 则走 Claude 分流。
+> 如果维护中的域名清单出现构建器不支持的新语法，GitHub Actions 会中止发布，避免静默遗漏。Sentry、Datadog EU、指定 OpenAI 遥测及上述四个精确遥测端点优先 REJECT；其他 Datadog US 域名仍按原规则走 Claude 分流。
 >
 > [!IMPORTANT]
-> - **Sentry、`datadoghq.eu`、`ab.chatgpt.com`、`oaistatsig.com` 及上表 Bilibili/抖音指定域名均为全局 REJECT 规则**，会影响其他使用相同域名的软件；`datadoghq.com` 不阻断而是进入 `Claude固定出口`。这些规则统一维护在 `tools/claude-route.cjs` 的 `BLOCK` 中，由 Fork 同步自动注入两份脚本。
+> - **Sentry、`datadoghq.eu`、`ab.chatgpt.com`、`oaistatsig.com`、上述四个遥测端点及 Bilibili/抖音指定域名均为全局 REJECT 规则**，会影响其他使用相同域名的软件；`datadoghq.com` 其他主机仍进入 `Claude固定出口`。这些规则统一维护在 `tools/claude-route.cjs` 的 `BLOCK` 中，由 Fork 同步自动注入两份脚本。
 > - 阻断部分遥测不能保证不出现直连；请在 Bettbox 检查 TUN 实际状态和连接日志。固定节点名称也**不等于固定公网 IP**。
 > - 本配置用于统一已接管流量的路由、减少指定域名的上报，**不能保证避免 Claude 账号封禁**。账号资格与使用地区仍需符合服务商政策。
 

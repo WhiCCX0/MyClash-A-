@@ -199,8 +199,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
-  // Shared third-party services: route only the three exact hosts before generic AI.
-  const thirdPartyExact = ['api-iam.intercom.io', 'nexus-websocket-a.intercom.io', 'browser-intake-us5-datadoghq.com'];
+  // Exact third-party web endpoints; telemetry collection is blocked separately.
+  const thirdPartyExact = ['api-iam.intercom.io', 'nexus-websocket-a.intercom.io'];
   const intercomAt = cfg.rules.indexOf('DOMAIN-SUFFIX,intercom.io,AI');
   const genericAiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
   for (const host of thirdPartyExact) {
@@ -223,6 +223,37 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   }
   assert.ok(!cfg.rules.includes('IP-CIDR,34.8.0.0/16,Claude固定出口,no-resolve'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,sentry.io,REJECT'));
+  // Event intake REJECT must win over canonical Anthropic entries and the generic AI rules.
+  const telemetryHosts = [
+    'api.segment.io',
+    'cdn.usefathom.com',
+    'browser-intake-us5-datadoghq.com',
+    'http-intake.logs.us5.datadoghq.com',
+  ];
+  const anthropicAt = cfg.rules.indexOf('RULE-SET,myclash_claude_anthropic,Claude固定出口');
+  const dataDogAt = cfg.rules.indexOf('DOMAIN-SUFFIX,datadoghq.com,Claude固定出口');
+  const aiFathomAt = cfg.rules.indexOf('DOMAIN,cdn.usefathom.com,AI');
+  for (const host of telemetryHosts) {
+    const rule = 'DOMAIN,' + host + ',REJECT';
+    const at = cfg.rules.indexOf(rule);
+    assert.ok(BLOCK.includes(rule), file + ': missing telemetry REJECT ' + host);
+    assert.equal(cfg.rules.filter((r) => r === rule).length, 1, file + ': duplicate telemetry REJECT ' + host);
+    assert.ok(at >= 0 && (anthropicAt < 0 || at < anthropicAt), file + ': telemetry after Anthropic');
+    assert.ok(genericAiAt < 0 || at < genericAiAt, file + ': telemetry after generic AI');
+    assert.ok(dataDogAt < 0 || at < dataDogAt, file + ': Datadog suffix shadows telemetry');
+    assert.ok(aiFathomAt < 0 || at < aiFathomAt, file + ': Fathom AI shadows telemetry');
+    assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + host + ',REJECT'), file + ': telemetry is not exact');
+  }
+  assert.ok(!cfg.rules.includes('DOMAIN,browser-intake-us5-datadoghq.com,Claude固定出口'));
+  for (const broad of ['segment.io', 'segment.com', 'usefathom.com', 'datadoghq.com']) {
+    assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,' + broad + ',REJECT'), file + ': overbroad telemetry block ' + broad);
+  }
+  // javdb.com (and subdomains) must use Claude before generic routes without being in the telemetry block.
+  const javdb = 'DOMAIN-SUFFIX,javdb.com,Claude固定出口';
+  const javdbAt = cfg.rules.indexOf(javdb);
+  assert.equal(cfg.rules.filter((rule) => rule === javdb).length, 1, file + ': missing or duplicate javdb route');
+  assert.ok(genericAiAt < 0 || javdbAt < genericAiAt, file + ': javdb must precede AI');
+  assert.ok(!BLOCK.some((rule) => rule.includes(',javdb.com,REJECT')));
   // Test the published result, not just the injection source: only inbound
   // Anthropic IPv4 ranges are destination routes. Outbound ranges are for
   // Anthropic-initiated traffic and should not widen client-side routing.

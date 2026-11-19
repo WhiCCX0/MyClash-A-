@@ -46,6 +46,11 @@ const BLOCK = [
   'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
   'DOMAIN-SUFFIX,ab.chatgpt.com,REJECT',
   'DOMAIN-SUFFIX,oaistatsig.com,REJECT',
+  // Targeted event collection and browser analytics; no broad Segment/Fathom or Datadog block.
+  'DOMAIN,api.segment.io,REJECT',
+  'DOMAIN,cdn.usefathom.com,REJECT',
+  'DOMAIN,browser-intake-us5-datadoghq.com,REJECT',
+  'DOMAIN,http-intake.logs.us5.datadoghq.com,REJECT',
   // Bilibili PCDN and specified domains; keep the narrow wildcard, not the entire biliapi.net.
   'DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT',
   'DOMAIN-SUFFIX,mcdn.bilivideo.cn,REJECT',
@@ -64,13 +69,12 @@ const ROUTE = [
   'DOMAIN-SUFFIX,claude.dev,Claude固定出口',
   'DOMAIN-SUFFIX,clau.de,Claude固定出口',
   'DOMAIN-SUFFIX,claudeusercontent.com,Claude固定出口',
-  // Entire registrable domain, not just http-intake.logs.us5.datadoghq.com.
+  // Datadog shared domain still uses Claude except the exact intake host blocked above.
   'DOMAIN-SUFFIX,datadoghq.com,Claude固定出口',
   'DOMAIN-SUFFIX,claudemcpcontent.com,Claude固定出口',
   // Exact third-party Claude web endpoints; do not redirect their shared parent domains.
   'DOMAIN,api-iam.intercom.io,Claude固定出口',
   'DOMAIN,nexus-websocket-a.intercom.io,Claude固定出口',
-  'DOMAIN,browser-intake-us5-datadoghq.com,Claude固定出口',
   'DOMAIN,anthropic.auth0.com,Claude固定出口',
   'DOMAIN,anthropic.com.cdn.cloudflare.net,Claude固定出口',
   // Anthropic-branded Ghost CMS host; use exact hostname, not the shared ghost.io suffix.
@@ -78,6 +82,8 @@ const ROUTE = [
   'DOMAIN-SUFFIX,siftscience.com,Claude固定出口',
   'DOMAIN-SUFFIX,sift.com,Claude固定出口',
   'DOMAIN-SUFFIX,growthbook.io,Claude固定出口',
+  // User-requested non-Claude website sharing the Claude selector (including its subdomains).
+  'DOMAIN-SUFFIX,javdb.com,Claude固定出口',
   // Anthropic inbound IPv4 destinations (client -> Anthropic).
   // Do not substitute outbound /21 and /20, which are source IPs for Anthropic-initiated calls.
   'IP-CIDR,160.79.104.0/23,Claude固定出口,no-resolve',
