@@ -210,10 +210,16 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.equal(cfg.rules.filter((r) => r === rule).length, 1, file + ': duplicate third-party route ' + rule);
     assert.ok(genericAiAt < 0 || at < genericAiAt, file + ': third-party host routed after AI ' + rule);
     assert.ok(intercomAt < 0 || at < intercomAt, file + ': Intercom AI suffix shadows Claude ' + rule);
-    assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + host + ',Claude固定出口'), file + ': avoid subdomain capture ' + host);
+    assert.ok(
+      !cfg.rules.includes('DOMAIN-SUFFIX,' + host + ',Claude固定出口'),
+      file + ': avoid subdomain capture ' + host,
+    );
   }
   for (const shared of ['intercom.io', 'stripe.com', 'googleapis.com', 'sentry.io']) {
-    assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + shared + ',Claude固定出口'), file + ': overbroad Claude ' + shared);
+    assert.ok(
+      !cfg.rules.includes('DOMAIN-SUFFIX,' + shared + ',Claude固定出口'),
+      file + ': overbroad Claude ' + shared,
+    );
   }
   assert.ok(!cfg.rules.includes('IP-CIDR,34.8.0.0/16,Claude固定出口,no-resolve'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,sentry.io,REJECT'));
