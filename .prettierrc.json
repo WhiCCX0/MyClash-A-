@@ -11,10 +11,7 @@
   "endOfLine": "lf",
   "overrides": [
     {
-      "files": [
-        "*.yml",
-        "*.yaml"
-      ],
+      "files": ["*.yml", "*.yaml"],
       "options": {
         "printWidth": 120
       }

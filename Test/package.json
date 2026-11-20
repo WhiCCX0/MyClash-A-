@@ -1,15 +1,15 @@
 {
-    "name": "myclash-script-tests",
-    "version": "1.0.0",
-    "private": true,
-    "description": "MyClash 覆写脚本（Script/Script.js 与 Script/mihomoScript.js）的测试套件",
-    "scripts": {
-        "test": "node run-tests.js",
-        "test:quickjs": "node run-tests.js --quickjs",
-        "test:es2020": "node run-tests.js --es2020"
-    },
-    "devDependencies": {
-        "espree": "^9.6.1",
-        "quickjs-emscripten": "^0.32.0"
-    }
+  "name": "myclash-script-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MyClash 覆写脚本（Script/Script.js 与 Script/mihomoScript.js）的测试套件",
+  "scripts": {
+    "test": "node run-tests.js",
+    "test:quickjs": "node run-tests.js --quickjs",
+    "test:es2020": "node run-tests.js --es2020"
+  },
+  "devDependencies": {
+    "espree": "^9.6.1",
+    "quickjs-emscripten": "^0.32.0"
+  }
 }
