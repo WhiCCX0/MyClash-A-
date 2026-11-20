@@ -2,7 +2,7 @@
 const fs = require('node:fs'),
   vm = require('node:vm'),
   assert = require('node:assert/strict');
-const { parseGeminiConfig, patchGemini } = require('./gemini-route.cjs');
+const { parseGeminiConfig, patchGemini, compileRe2ForJs } = require('./gemini-route.cjs');
 const routeConfig = parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json', 'utf8')));
 const expectedGeminiRules = [
   'IN-USER,' + routeConfig.in_users.join('/') + ',Gemini Web',
@@ -92,10 +92,20 @@ const bad = {
   'RE2 positive lookbehind': { in_users: ['a'], process_path_regex: '(?<=foo)bar' },
   'RE2 negative lookbehind': { in_users: ['a'], process_path_regex: '(?<!foo)bar' },
   'RE2 backreference': { in_users: ['a'], process_path_regex: String.raw`\1` },
+  'JS-only named group (?<name>...)': { in_users: ['a'], process_path_regex: '(?<bin>gemini)\\.exe$' },
+  'JS-only unicode codepoint escape': { in_users: ['a'], process_path_regex: String.raw`\u{61}` },
+  'ReDoS nested quantifier (a+)+': { in_users: ['a'], process_path_regex: '(a+)+$' },
+  'ReDoS nested quantifier ([a-z]*)+': { in_users: ['a'], process_path_regex: '([a-z]*)+\\.exe$' },
   'not object': null,
 };
-for (const value of ['(?i)gemini\\.exe$', '(?s)(?i)gemini.*', '(?-i)Gemini']) {
-  check('parse/accept RE2 inline flags ' + value, () => {
+for (const value of [
+  '(?i)gemini\\.exe$',
+  '(?s)(?i)gemini.*',
+  '(?-i)Gemini',
+  '(?P<bin>gemini-web2api-go|aistudio2api)\\.exe$',
+  String.raw`\A/usr/local/bin/gemini-web2api-go\z`,
+]) {
+  check('parse/accept RE2 syntax ' + value, () => {
     assert.equal(parseGeminiConfig({ in_users: ['a'], process_path_regex: value }).process_path_regex, value);
   });
 }
@@ -171,16 +181,19 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     for (const rule of ['RULE-SET,google,Google', 'RULE-SET,ai,AI'])
       if (rules.includes(rule)) assert.ok(rules.indexOf(rule) > at + expectedGeminiRules.length);
   });
-  check(file + '/process regex accepts both Windows backends only', () => {
+  check(file + '/process regex accepts Windows/POSIX and case-insensitive backends only', () => {
     const lines = cfg.rules.filter((r) => r.startsWith('PROCESS-PATH-REGEX,') && r.endsWith(',Gemini Web'));
     assert.equal(lines.length, 1);
     const pattern = lines[0].slice('PROCESS-PATH-REGEX,'.length, -',Gemini Web'.length);
     assert.equal(pattern, routeConfig.process_path_regex);
-    const regex = new RegExp(pattern);
+    const regex = compileRe2ForJs(pattern);
     assert.ok(regex.test('D:\\x\\bin\\gemini-web2api-go.exe'));
-    assert.ok(regex.test('D:\\x\\package\\aistudio2api.exe'));
+    assert.ok(regex.test('D:\\x\\package\\AISTUDIO2API.EXE'));
+    assert.ok(regex.test('/usr/local/bin/gemini-web2api-go'));
+    assert.ok(regex.test('/opt/aistudio2api/aistudio2api'));
     assert.ok(!regex.test('D:\\x\\camoufox.exe'));
     assert.ok(!regex.test('D:\\x\\gemini-web2api-go.exe.bak'));
+    assert.ok(!regex.test('/usr/local/bin/my-gemini-web2api-go'));
   });
   check(file + '/no shared Google or gstatic domain rules', () => {
     const forbidden = [
@@ -219,9 +232,11 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     for (const key of ['rules', 'proxy-groups', 'proxies', 'dns', 'tun', 'mixed-port', 'rule-providers'])
       assert.deepEqual(current[key], base[key], key);
   });
-  check(file + '/only US edge', () => {
-    const g = api.main({ proxies: [node('🇺🇸 US 01', 1), node('美国 02', 2)], dns: {} })['proxy-groups'];
+  check(file + '/only US edge (including Las Vegas parity)', () => {
+    const usInput = { proxies: [node('🇺🇸 US 01', 1), node('拉斯维加斯 02', 2)], dns: {} };
+    const g = api.main(usInput)['proxy-groups'];
     assert.deepEqual(plain(g.find((x) => x.name === 'Gemini Web').proxies), ['默认代理', '手动选择', '美国']);
+    assert.ok(!g.some((x) => x.name === '其他节点'), '拉斯维加斯 should match 美国 in both Lite and Full');
   });
   check(file + '/only nonregional edge', () => {
     const g = api.main({ proxies: [node('Mystery 01', 1)], dns: {} })['proxy-groups'];

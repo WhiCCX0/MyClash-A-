@@ -3,23 +3,112 @@ const fs = require('node:fs');
 const { patch, parseAnthropicSource } = require('./claude-route.cjs');
 const { parseGeminiConfig, patchGemini } = require('./gemini-route.cjs');
 const files = ['Script/mihomoScript.js', 'Script/Script.js'];
-async function get(url) {
+const RESERVED_NODE_NAMES = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL', '直连'];
+
+function parseClaudeConfig(obj) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+    throw Error('Claude config must be a JSON object');
+  }
+  const keys = Object.keys(obj);
+  if (keys.length !== 1 || keys[0] !== 'node_name' || typeof obj.node_name !== 'string') {
+    throw Error('Claude config must contain only string node_name');
+  }
+  const trimmed = obj.node_name.trim();
+  const isReserved = RESERVED_NODE_NAMES.includes(trimmed.toUpperCase());
+  if (trimmed.length > 256 || /[\r\n]/.test(obj.node_name) || isReserved) {
+    throw Error('Invalid Claude node_name');
+  }
+  return { node_name: obj.node_name };
+}
+
+async function get(url, fetchImpl = fetch) {
+  const parsedUrl = new URL(url);
+  if (parsedUrl.protocol !== 'https:') {
+    throw Error('Refusing non-HTTPS URL: ' + url);
+  }
   for (let i = 0; i < 3; i++) {
     try {
       const headers = { 'User-Agent': 'MyClash-A-Sync' };
-      if (new URL(url).hostname === 'api.github.com') {
+      if (parsedUrl.hostname === 'api.github.com') {
         headers.Accept = 'application/vnd.github+json';
         if (process.env.GITHUB_TOKEN) headers.Authorization = 'Bearer ' + process.env.GITHUB_TOKEN;
       }
-      const r = await fetch(url, { headers, signal: AbortSignal.timeout(30000) });
-      if (!r.ok) throw Error(url + ' HTTP ' + r.status);
+      const r = await fetchImpl(url, { headers, signal: AbortSignal.timeout(30000) });
+      if (!r.ok) {
+        const err = Error(url + ' HTTP ' + r.status);
+        err.status = r.status;
+        throw err;
+      }
       return await r.text();
     } catch (e) {
-      if (i === 2) throw e;
+      const status = e && typeof e.status === 'number' ? e.status : 0;
+      const nonRetryable = status >= 400 && status < 500 && status !== 408 && status !== 429;
+      if (i === 2 || nonRetryable) throw e;
       await new Promise((res) => setTimeout(res, 1000 * (i + 1)));
     }
   }
 }
+
+// Harden upstream helper edge cases (2-level public suffix DNS policy, strict IPv4/IPv6 check, Lite US regex parity).
+function hardenUpstreamSource(source) {
+  if (typeof source !== 'string') throw Error('Invalid upstream source');
+  let out = source;
+
+  // 1. Align Lite US region regex with Full script so '拉斯维加斯' nodes do not fall into 其他节点.
+  const oldUs = '华盛顿|圣何塞|(?<![A-Za-z])USA?';
+  const newUs = '华盛顿|拉斯维加斯|圣何塞|(?<![A-Za-z])USA?';
+  out = out.replace(oldUs, () => newUs);
+
+  // 2. Tighten isIpAddress to validate 0-255 IPv4 octets and bracketed IPv6 literals.
+  const oldIsIp = [
+    'function isIpAddress(server) {',
+    "  return /^\\d{1,3}(\\.\\d{1,3}){3}$/.test(server) || server.includes(':');",
+    '}',
+  ].join('\n');
+  const newIsIp = [
+    'function isIpAddress(server) {',
+    "  const host = String(server).replace(/^\\[|\\]$/g, '');",
+    '  if (/^(?:(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)$/.test(host)) {',
+    '    return true;',
+    '  }',
+    "  return host.includes(':') && /^[0-9a-fA-F:.%]+$/.test(host);",
+    '}',
+  ].join('\n');
+  if (out.includes(oldIsIp)) {
+    out = out.replace(oldIsIp, () => newIsIp);
+  }
+
+  // 3. Guard simplifyDomainPolicy against collapsing 2-level public suffixes (.co.uk, .com.cn) or trailing dots.
+  const oldSimplify = [
+    "    const parts = domain.split('.');",
+    '',
+    '    if (parts.length < 3) {',
+    '      groups.set(`keep:${domain}`, [{ domain, dns, dnsKey }]);',
+    '      continue;',
+    '    }',
+    '',
+    "    const suffix = parts.slice(-2).join('.');",
+  ].join('\n');
+  const newSimplify = [
+    "    const normalizedDomain = domain.replace(/\\.+$/, '').toLowerCase();",
+    "    const parts = normalizedDomain.split('.').filter(Boolean);",
+    "    const twoLevelTld = /^(?:co|com|net|org|gov|edu|ac|ne|or)\\.[a-z]{2}$/.test(parts.slice(-2).join('.'));",
+    '    const minParts = twoLevelTld ? 4 : 3;',
+    '',
+    '    if (parts.length < minParts) {',
+    '      groups.set(`keep:${domain}`, [{ domain, dns, dnsKey }]);',
+    '      continue;',
+    '    }',
+    '',
+    "    const suffix = parts.slice(twoLevelTld ? -3 : -2).join('.');",
+  ].join('\n');
+  if (out.includes(oldSimplify)) {
+    out = out.replace(oldSimplify, () => newSimplify);
+  }
+
+  return out;
+}
+
 // Replace only the recognizable upstream banner; preserve unknown upstream headers.
 function applyForkHeader(source, file, upstreamSha) {
   const versions = {
@@ -55,34 +144,39 @@ function applyForkHeader(source, file, upstreamSha) {
   console.warn('WARNING: Unrecognized MyClash upstream header in ' + file + '; preserving original comment');
   return source.slice(0, offset) + (offset ? '\n\n' : '') + forkBlock + '\n' + source.slice(offset);
 }
+
 async function main() {
-  const cfg = JSON.parse(fs.readFileSync('claude-route.json', 'utf8'));
+  const cfg = parseClaudeConfig(JSON.parse(fs.readFileSync('claude-route.json', 'utf8')));
   const geminiCfg = parseGeminiConfig(JSON.parse(fs.readFileSync('gemini-route.json', 'utf8')));
-  if (typeof cfg.node_name !== 'string') throw Error('node_name must be string');
-  const meta = JSON.parse(await get('https://api.github.com/repos/AIsouler/MyClash/commits/main'));
-  if (!/^[a-f0-9]{40}$/.test(meta.sha)) throw Error('Invalid upstream SHA');
-  // Pull the complete maintained Anthropic domain source for every daily build.
-  // The parser fails closed if upstream introduces an unsupported directive.
-  const anthropicSource = await get(
-    'https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/anthropic',
-  );
+  // Fetch upstream commit metadata and Anthropic canonical domain list concurrently.
+  const [metaText, anthropicSource] = await Promise.all([
+    get('https://api.github.com/repos/AIsouler/MyClash/commits/main'),
+    get('https://raw.githubusercontent.com/v2fly/domain-list-community/master/data/anthropic'),
+  ]);
+  const meta = JSON.parse(metaText);
+  if (!meta || typeof meta !== 'object' || !/^[a-f0-9]{40}$/.test(meta.sha)) {
+    throw Error('Invalid upstream SHA');
+  }
   const anthropicRules = parseAnthropicSource(anthropicSource);
   console.log('Anthropic canonical rules: ' + anthropicRules.length);
-  const generated = {};
-  for (const file of files) {
-    const source = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
-    generated[file] = applyForkHeader(
-      patchGemini(patch(source, cfg.node_name, anthropicRules), geminiCfg),
-      file,
-      meta.sha,
-    );
-  }
-  for (const file of files) {
-    fs.writeFileSync(file, generated[file]);
+
+  // Fetch and build both upstream scripts concurrently.
+  const buildTasks = files.map(async (file) => {
+    const rawSource = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
+    const hardened = hardenUpstreamSource(rawSource);
+    const patched = patchGemini(patch(hardened, cfg.node_name, anthropicRules), geminiCfg);
+    const built = applyForkHeader(patched, file, meta.sha);
+    return [file, built];
+  });
+  const builtEntries = await Promise.all(buildTasks);
+
+  for (const [file, content] of builtEntries) {
+    fs.writeFileSync(file, content);
     console.log(file + ' built at ' + meta.sha);
   }
 }
-module.exports = { applyForkHeader };
+
+module.exports = { applyForkHeader, parseClaudeConfig, hardenUpstreamSource, get };
 if (require.main === module) {
   main().catch((e) => {
     console.error(e);
