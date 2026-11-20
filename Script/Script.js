@@ -1611,7 +1611,7 @@ function main(config) {
   ];
 
   // BEGIN MyClash-A- Claude routing (generated)
-  addClaudeRoute(newConfig, "", ANTHROPIC_RULES);
+  addClaudeRoute(newConfig, '', ANTHROPIC_RULES);
   // END MyClash-A- Claude routing
   // BEGIN MyClash-A- Gemini routing (generated)
   addGeminiRoute(newConfig, GEMINI_CONFIG);
@@ -1622,6 +1622,8 @@ function main(config) {
 // Shared add-on: upstream MyClash code is otherwise unchanged.
 const PROVIDER = 'myclash_claude_anthropic';
 const ANTHROPIC_RULES = [
+  'DOMAIN,http-intake.logs.us5.datadoghq.com,Claude固定出口',
+  'DOMAIN,o1158394.ingest.us.sentry.io,Claude固定出口',
   'DOMAIN,servd-anthropic-website.b-cdn.net,Claude固定出口',
   'DOMAIN-SUFFIX,ant.dev,Claude固定出口',
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
@@ -1715,20 +1717,27 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
 
   const groupName = 'Claude固定出口';
   const groups = config['proxy-groups'];
-  const groupNames = new Set(groups.filter((g) => g && typeof g.name === 'string').map((g) => g.name));
+  const groupNames = new Set();
+  for (const g of groups) {
+    if (g && typeof g.name === 'string') {
+      groupNames.add(g.name);
+    }
+  }
   const excludedTypes = new Set(['direct', 'reject', 'reject-drop', 'pass', 'compatible']);
-  const names = new Set(
-    config.proxies
-      .filter((p) => p && typeof p.name === 'string' && !excludedTypes.has(String(p.type).toLowerCase()))
-      .map((p) => p.name),
-  );
+  const names = new Set();
+  for (const p of config.proxies) {
+    if (p && typeof p.name === 'string' && !excludedTypes.has(String(p.type).toLowerCase())) {
+      names.add(p.name);
+    }
+  }
   if (groupNames.has(groupName) || names.has(groupName)) throw Error('Claude group name collision');
 
   // Match the Taiwanese region using upstream's own classification rules.
   // Unlike a name-only filter, this is consistent with normalized custom proxies.
   const taiwanNodes = [...names].filter((name) => getMatchedRegions(name).some((region) => region.name === '台湾'));
   const taiwanSet = new Set(taiwanNodes);
-  const taiwanGroups = ['台湾', '台湾-自动选择'].filter((name) => groupNames.has(name) && taiwanNodes.length > 0);
+  const candidateTaiwanGroups = ['台湾', '台湾-自动选择'];
+  const taiwanGroups = candidateTaiwanGroups.filter((name) => groupNames.has(name) && taiwanNodes.length > 0);
   const available = Boolean(pinnedNode && taiwanSet.has(pinnedNode));
   const choices = pinnedNode
     ? available
@@ -1737,7 +1746,8 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
     : ['REJECT', ...taiwanNodes, ...taiwanGroups];
   const defaultIndex = groups.findIndex((g) => g && g.name === '默认代理');
   const insertAt = defaultIndex < 0 ? 0 : defaultIndex + 1;
-  const baseSelect = typeof selectBaseOption === 'object' && selectBaseOption ? selectBaseOption : { type: 'select' };
+  const hasBaseSelect = typeof selectBaseOption === 'object' && selectBaseOption !== null;
+  const baseSelect = hasBaseSelect ? selectBaseOption : { type: 'select' };
   groups.splice(insertAt, 0, {
     ...baseSelect,
     name: groupName,
@@ -1748,15 +1758,14 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
   const global = groups.find((g) => g && g.name === 'GLOBAL');
   if (global && Array.isArray(global.proxies) && !global.proxies.includes(groupName)) global.proxies.push(groupName);
   // Deduplicate identical rules while preserving first-seen priority order.
-  config['rules'] = [
-    ...new Set([
-      ...BLOCK,
-      ...anthropicRules,
-      'RULE-SET,' + PROVIDER + ',Claude固定出口',
-      ...ROUTE,
-      ...config['rules'],
-    ]),
+  const mergedRules = [
+    ...BLOCK,
+    ...anthropicRules,
+    'RULE-SET,' + PROVIDER + ',Claude固定出口',
+    ...ROUTE,
+    ...config['rules'],
   ];
+  config['rules'] = [...new Set(mergedRules)];
 }
 
 // Gemini Web P0 add-on (generated)
