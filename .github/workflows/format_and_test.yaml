@@ -4,17 +4,23 @@ on:
   push:
     branches: ['main']
     paths:
-      - 'Script/*'
+      - 'Script/**'
+      - 'Config/**'
       - 'Test/**'
-      - 'tools/*.cjs'
+      - 'tools/**'
+      - 'claude-route.json'
+      - 'gemini-route.json'
       - '**/*.yaml'
       - '**/*.yml'
       - '.prettierrc*'
   pull_request:
     paths:
-      - 'Script/*'
+      - 'Script/**'
+      - 'Config/**'
       - 'Test/**'
-      - 'tools/*.cjs'
+      - 'tools/**'
+      - 'claude-route.json'
+      - 'gemini-route.json'
       - '**/*.yaml'
       - '**/*.yml'
       - '.prettierrc*'
@@ -34,6 +40,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -45,12 +53,12 @@ jobs:
       - name: Install locked test dependencies
         run: npm ci --prefix Test
 
-      - name: Install pinned formatter
-        run: npm install -g prettier@3.9.10
-
       - name: Check formatting without changing repository files
         run: |
-          git ls-files -z '*.js' '*.cjs' '*.yml' '*.yaml' | xargs -0 -r prettier --check
+          git ls-files -z '*.js' '*.cjs' '*.json' '*.yml' '*.yaml' | xargs -0 -r npx --yes prettier@3.9.10 --check
 
-      - name: Run tests
-        run: node Test/run-tests.js
+      - name: Run full test suites
+        run: |
+          node tools/test-claude.cjs
+          node tools/test-gemini.cjs
+          node Test/run-tests.js
