@@ -7,12 +7,14 @@ on:
     branches: [main]
     paths:
       - 'tools/**'
+      - 'Test/**'
       - 'gemini-route.json'
       - 'claude-route.json'
       - '.github/workflows/sync-myclash.yml'
   pull_request:
     paths:
       - 'tools/**'
+      - 'Test/**'
       - 'gemini-route.json'
       - 'claude-route.json'
       - '.github/workflows/sync-myclash.yml'
@@ -34,29 +36,39 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: Test/package-lock.json
+      - name: Install locked test dependencies
+        run: npm ci --prefix Test
       - name: Sync upstream and inject routes
         run: node tools/sync-upstream.cjs
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - name: Format generated scripts
         run: |
-          npm install -g prettier@3.9.10
-          prettier --write Script/mihomoScript.js Script/Script.js
-      - name: Check generated scripts and routing tests
+          npx --yes prettier@3.9.10 --write Script/mihomoScript.js Script/Script.js
+      - name: Check generated scripts, routing tests, and full test suite
         run: |
           node --check Script/mihomoScript.js
           node --check Script/Script.js
           node tools/test-claude.cjs
           node tools/test-gemini.cjs
+          node Test/run-tests.js
           git diff --check
       - name: Upload verified scripts
+        if: >-
+          github.ref == 'refs/heads/main' &&
+          (github.event_name == 'schedule' ||
+           github.event_name == 'workflow_dispatch' ||
+           github.event_name == 'push')
         uses: actions/upload-artifact@v4
         with:
-          name: myclash-generated-scripts
+          name: myclash-scripts-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             Script/mihomoScript.js
             Script/Script.js
           if-no-files-found: error
+          retention-days: 1
 
   publish:
     if: >-
@@ -76,28 +88,37 @@ jobs:
       - name: Download verified scripts
         uses: actions/download-artifact@v4
         with:
-          name: myclash-generated-scripts
-          path: generated
-      - name: Commit verified scripts only if changed
+          name: myclash-scripts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: verified
+      - name: Validate artifact contents and publish with retry
         run: |
+          set -euo pipefail
+          actual="$(cd verified && find . -type f | LC_ALL=C sort)"
+          expected="$(printf '%s\n' './Script.js' './mihomoScript.js')"
+          test "$actual" = "$expected"
+          test ! -L verified/Script.js
+          test ! -L verified/mihomoScript.js
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           for attempt in 1 2 3; do
             echo "Publish attempt ${attempt}/3"
             git fetch origin main
             git reset --hard origin/main
-            cp generated/Script.js Script/Script.js
-            cp generated/mihomoScript.js Script/mihomoScript.js
+            cp verified/Script.js Script/Script.js
+            cp verified/mihomoScript.js Script/mihomoScript.js
             test -f Script/Script.js && test -f Script/mihomoScript.js
             test ! -e Script.js && test ! -e mihomoScript.js
             git diff --check
-            git add Script/Script.js Script/mihomoScript.js
+            git add -- Script/Script.js Script/mihomoScript.js
             if git diff --cached --quiet; then
+              rm -rf verified
               echo 'No generated script changes'
               exit 0
             fi
             git commit -m "chore: sync MyClash upstream with Claude and Gemini routes"
             if git push origin HEAD:main; then
+              rm -rf verified
               echo "Published scripts on attempt ${attempt}/3"
               exit 0
             fi
@@ -106,5 +127,6 @@ jobs:
               sleep 5
             fi
           done
+          rm -rf verified
           echo 'Failed to publish verified scripts after 3 attempts' >&2
           exit 1
