@@ -1,5 +1,52 @@
 'use strict';
 
+// Validate a Mihomo (Go RE2) regex and compile an equivalent JS RegExp for testing.
+function compileRe2ForJs(regex) {
+  if (typeof regex !== 'string' || regex.length > 256 || /[,\r\n]/.test(regex)) {
+    throw Error('Invalid Gemini process_path_regex');
+  }
+  // Reject constructs invalid in Go RE2 (lookarounds, backrefs, JS-only (?<name>...) and \u{...}).
+  if (
+    /\(\?(?:=|!|<=|<!|<[A-Za-z_])/.test(regex) ||
+    /\\[1-9]/.test(regex) ||
+    /\\u\{[0-9a-fA-F]+\}/.test(regex)
+  ) {
+    throw Error('Unsupported RE2 process_path_regex construct');
+  }
+  // Guard against nested quantifiers (e.g. (a+)+, ([a-z]*)+) to prevent ReDoS in JS RegExp evaluation.
+  if (/\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*(?:[+*]|\{\d+,?\d*\})/.test(regex)) {
+    throw Error('Unsafe nested quantifier in process_path_regex');
+  }
+  let flags = '';
+  let body = regex;
+  const leading = body.match(/^(?:\(\?([imsU-]+)\))+/);
+  if (leading) {
+    const rawFlags = leading[0].replace(/[()\?]/g, '');
+    let negating = false;
+    const active = new Set();
+    for (const ch of rawFlags) {
+      if (ch === '-') {
+        negating = true;
+      } else if (ch === 'i' || ch === 'm' || ch === 's') {
+        if (negating) active.delete(ch);
+        else active.add(ch);
+      }
+    }
+    flags = [...active].join('');
+    body = body.slice(leading[0].length);
+  }
+  // Translate RE2 (?P<name>...) and \A / \z anchors for JS RegExp syntax verification.
+  const jsBody = body
+    .replace(/\(\?P<([A-Za-z_][A-Za-z0-9_]*)>/g, '(?<$1>')
+    .replace(/\\A/g, '^')
+    .replace(/\\z/g, '$');
+  try {
+    return new RegExp(jsBody, flags);
+  } catch (e) {
+    throw Error('Invalid Gemini process regex: ' + e.message);
+  }
+}
+
 // Gemini Web: one dedicated selector reusing existing upstream region groups.
 // No country-specific selectors, fallback, load-balance, or ports are created.
 function parseGeminiConfig(obj) {
@@ -26,16 +73,7 @@ function parseGeminiConfig(obj) {
     throw Error('Invalid Gemini process_path_regex');
   }
   if (regex) {
-    if (/\(\?(?:=|!|<=|<!)/.test(regex) || /\\[1-9]/.test(regex)) {
-      throw Error('Unsupported RE2 process_path_regex construct');
-    }
-    // Go RE2 supports leading inline flags (e.g. (?i), (?s)); JavaScript does not.
-    const jsRegex = regex.replace(/^(?:\(\?[imsU-]+\))+/, () => '');
-    try {
-      new RegExp(jsRegex);
-    } catch (e) {
-      throw Error('Invalid Gemini process regex: ' + e.message);
-    }
+    compileRe2ForJs(regex);
   }
   return { in_users: [...obj.in_users], process_path_regex: regex };
 }
@@ -62,20 +100,24 @@ function addGeminiRoute(config, cfg) {
     throw Error('Missing validated GEMINI_CONFIG');
   }
   const groups = config['proxy-groups'];
-  const namedGroups = groups.filter((g) => g && typeof g.name === 'string' && g.name);
-  const names = new Set(namedGroups.map((g) => g.name));
+  const groupByName = new Map();
+  for (const g of groups) {
+    if (g && typeof g.name === 'string' && g.name && !groupByName.has(g.name)) {
+      groupByName.set(g.name, g);
+    }
+  }
   const existingProxies = new Set(
     config.proxies.filter((p) => p && typeof p.name === 'string' && p.name).map((p) => p.name),
   );
   const groupName = 'Gemini Web';
-  if (names.has(groupName) || existingProxies.has(groupName)) {
+  if (groupByName.has(groupName) || existingProxies.has(groupName)) {
     throw Error('Gemini selector name collision');
   }
-  if (!names.has('默认代理')) throw Error('Missing 默认代理 group');
+  if (!groupByName.has('默认代理')) throw Error('Missing 默认代理 group');
   // Reuse existing upstream groups unchanged; omit absent/lite-mode groups.
   const sharedOrder = ['手动选择', '美国', '日本', '新加坡', '台湾', '其他节点'];
   const sharedGroups = sharedOrder.filter((name) => {
-    const group = namedGroups.find((g) => g.name === name);
+    const group = groupByName.get(name);
     return group && Array.isArray(group.proxies) && group.proxies.length > 0;
   });
   const entry = {
@@ -89,7 +131,7 @@ function addGeminiRoute(config, cfg) {
   const defaultIdx = groups.findIndex((g) => g && g.name === '默认代理');
   const insertion = (claudeIdx >= 0 ? claudeIdx : defaultIdx) + 1;
   groups.splice(insertion, 0, entry);
-  const global = namedGroups.find((g) => g.name === 'GLOBAL');
+  const global = groupByName.get('GLOBAL');
   if (!global || !Array.isArray(global.proxies)) throw Error('Missing GLOBAL group');
   if (!global.proxies.includes(groupName)) global.proxies.push(groupName);
 
@@ -135,15 +177,21 @@ function patchGemini(source, cfg) {
       '  addGeminiRoute(newConfig, GEMINI_CONFIG);\n' +
       '  // END MyClash-A- Gemini routing\n',
   );
+  const usersLiteral = '[' + parsed.in_users.map((u) => "'" + u + "'").join(', ') + ']';
+  const regexLiteral = "'" + parsed.process_path_regex.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
   return (
     added +
     '\n// Gemini Web P0 add-on (generated)\n' +
-    'const GEMINI_CONFIG=' +
-    JSON.stringify(parsed) +
-    ';\n' +
+    'const GEMINI_CONFIG = {\n' +
+    '  in_users: ' +
+    usersLiteral +
+    ',\n' +
+    '  process_path_regex: ' +
+    regexLiteral +
+    ',\n};\n\n' +
     addGeminiRoute.toString() +
     '\n'
   );
 }
 
-module.exports = { parseGeminiConfig, patchGemini, addGeminiRoute };
+module.exports = { parseGeminiConfig, patchGemini, addGeminiRoute, compileRe2ForJs };

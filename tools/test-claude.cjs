@@ -3,18 +3,21 @@ const fs = require('node:fs'),
   vm = require('node:vm'),
   assert = require('node:assert/strict');
 const { patch, parseAnthropicSource, BLOCK } = require('./claude-route.cjs');
-const { applyForkHeader } = require('./sync-upstream.cjs');
+const { applyForkHeader, parseClaudeConfig, hardenUpstreamSource, get } = require('./sync-upstream.cjs');
+
 const anthropicFixture = [
   '# canonical list',
   'anthropic.com',
-  'claude.ai',
+  'claude.ai @!ads',
   'claude.com',
   'clau.de',
   'domain:anthropic.com @!cn',
-  'full:api.anthropic.com @ads',
+  'full:api.anthropic.com @!cn',
+  'full:http-intake.logs.us5.datadoghq.com @ads',
+  'full:o1158394.ingest.us.sentry.io @ads',
   'keyword:claude',
-  'example.org @ads @!cn # attributes and comment',
-  'example.org',
+  'example.org @ads @!cn # telemetry entry should be skipped',
+  'clean.example.org @!cn # non-ads entry retained',
   'alpha.example',
   'beta.example',
   'gamma.example',
@@ -30,20 +33,46 @@ const anthropicFixture = [
 const parsed = parseAnthropicSource(anthropicFixture);
 for (const expected of [
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
+  'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
   'DOMAIN,api.anthropic.com,Claude固定出口',
   'DOMAIN-KEYWORD,claude,Claude固定出口',
-  'DOMAIN-SUFFIX,example.org,Claude固定出口',
+  'DOMAIN-SUFFIX,clean.example.org,Claude固定出口',
 ])
   assert.ok(parsed.includes(expected), 'parse missing ' + expected);
+// Ensure @ads entries are filtered out and never routed through Claude固定出口.
+for (const forbiddenAds of [
+  'DOMAIN,http-intake.logs.us5.datadoghq.com,Claude固定出口',
+  'DOMAIN,o1158394.ingest.us.sentry.io,Claude固定出口',
+  'DOMAIN-SUFFIX,example.org,Claude固定出口',
+])
+  assert.ok(!parsed.includes(forbiddenAds), 'parse leaked @ads entry: ' + forbiddenAds);
 assert.equal(parsed.filter((x) => x === 'DOMAIN-SUFFIX,anthropic.com,Claude固定出口').length, 1);
-assert.equal(parsed.filter((x) => x === 'DOMAIN-SUFFIX,example.org,Claude固定出口').length, 1);
-for (const directive of ['regexp:foo', 'include:foo', 'unknown:foo']) {
+for (const directive of ['regexp:foo', 'include:foo', 'unknown:foo', 'bad..domain.com']) {
   assert.throws(
     () => parseAnthropicSource(anthropicFixture + '\n' + directive),
     /Unsupported|Invalid/,
     'Expected parser rejection: ' + directive,
   );
 }
+
+// Validate parseClaudeConfig schema hardening
+assert.deepEqual(parseClaudeConfig({ node_name: '' }), { node_name: '' });
+assert.deepEqual(parseClaudeConfig({ node_name: '🇹🇼 台湾 01' }), { node_name: '🇹🇼 台湾 01' });
+for (const badCfg of [
+  null,
+  [],
+  {},
+  { node_name: '', extra: 1 },
+  { node_name: 123 },
+  { node_name: 'DIRECT' },
+  { node_name: 'REJECT-DROP' },
+  { node_name: 'GLOBAL' },
+  { node_name: '直连' },
+  { node_name: 'line1\nline2' },
+]) {
+  assert.throws(() => parseClaudeConfig(badCfg), /Claude config|Invalid Claude node_name/);
+}
+
 function originalUpstreamScript(source) {
   const addon = '// Shared add-on: upstream MyClash code is otherwise unchanged.';
   const gemini = '// Gemini Web P0 add-on (generated)';
@@ -72,7 +101,7 @@ const sample = {
   ],
   dns: {},
 };
-const pinned = JSON.parse(fs.readFileSync('claude-route.json', 'utf8')).node_name;
+const pinned = parseClaudeConfig(JSON.parse(fs.readFileSync('claude-route.json', 'utf8'))).node_name;
 const fallbackSha = '0123456789abcdef0123456789abcdef01234567';
 const unusualHeader = '/**\n * Unexpected upstream header\n */';
 const preservedSource = unusualHeader + '\nconst originalCode = 1;\n';
@@ -106,9 +135,13 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   const g = cfg['proxy-groups'].find((x) => x.name === 'Claude固定出口');
   assert.ok(g);
   assert.equal(g.type, 'select');
+  assert.equal(g.timeout, 5000, file + ': Claude selector should inherit selectBaseOption timeout');
+  assert.equal(g['empty-fallback'], 'REJECT', file + ': Claude selector should inherit empty-fallback');
   assert.ok(g.proxies.includes('REJECT'));
   assert.ok(!g.proxies.includes('DIRECT'));
   assert.ok(!g.proxies.includes('自动选择'));
+  // Ensure rules array has zero exact duplicate entries
+  assert.equal(cfg.rules.length, new Set(cfg.rules).size, file + ': duplicate rules emitted');
   const taiwanNames = new Set(['🇹🇼 台湾 01', '🇹🇼 TW 02']);
   const taiwanGroupNames = ['台湾', '台湾-自动选择'];
   const expectedTaiwan = ['REJECT', ...taiwanNames, ...taiwanGroupNames];
@@ -134,11 +167,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
 
   assert.equal(cfg.rules[0], 'DOMAIN-SUFFIX,sentry.io,REJECT');
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.eu,REJECT'));
-  // The fork's REJECT exceptions must survive regeneration of both scripts.
-  // Keep the narrower ChatGPT experiment host instead of rejecting chatgpt.com.
   const forkRejects = ['DOMAIN-SUFFIX,ab.chatgpt.com,REJECT', 'DOMAIN-SUFFIX,oaistatsig.com,REJECT'];
   assert.deepEqual(Array.from(cfg.rules.slice(0, BLOCK.length)), Array.from(BLOCK), file + ': fork REJECT ordering');
-  // Bilibili PCDN: preserve the narrow wildcard, not the entire biliapi.net suffix.
   const biliRejects = [
     'DOMAIN-WILDCARD,*pcdn*.biliapi.net,REJECT',
     'DOMAIN-SUFFIX,mcdn.bilivideo.cn,REJECT',
@@ -160,7 +190,6 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.ok(claudeAt < 0 || cfg.rules.indexOf(rule) < claudeAt, file + ': REJECT must precede Claude ' + rule);
     assert.ok(aiAt < 0 || cfg.rules.indexOf(rule) < aiAt, file + ': REJECT must precede AI ' + rule);
   }
-  // Targeted Douyin candidates: no blanket Douyin CDN or Douyu block.
   const douyinRejects = ['DOMAIN-SUFFIX,xycdn.com,REJECT', 'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT'];
   for (const rule of douyinRejects) {
     assert.ok(BLOCK.includes(rule), file + ': missing maintained Douyin REJECT rule ' + rule);
@@ -190,8 +219,6 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   }
   assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,chatgpt.com,REJECT'), 'Do not reject all ChatGPT');
   assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,statsigapi.net,REJECT'), 'Do not reject shared Statsig');
-  // Claude owns the requested registrable domains, including Datadog US intake.
-  // A broad Datadog REJECT would shadow the new Claude rule.
   for (const domain of ['anthropic.com', 'claude.ai', 'claudeusercontent.com', 'datadoghq.com']) {
     const rule = 'DOMAIN-SUFFIX,' + domain + ',Claude固定出口';
     assert.ok(cfg.rules.includes(rule), file + ': missing suffix ' + domain);
@@ -199,7 +226,6 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,datadoghq.com,REJECT'));
   assert.ok(!cfg.rules.includes('DOMAIN-KEYWORD,datadoghq,REJECT'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,siftscience.com,Claude固定出口'));
-  // Exact third-party web endpoints; telemetry collection is blocked separately.
   const thirdPartyExact = ['api-iam.intercom.io', 'nexus-websocket-a.intercom.io'];
   const intercomAt = cfg.rules.indexOf('DOMAIN-SUFFIX,intercom.io,AI');
   const genericAiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
@@ -223,7 +249,6 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   }
   assert.ok(!cfg.rules.includes('IP-CIDR,34.8.0.0/16,Claude固定出口,no-resolve'));
   assert.ok(cfg.rules.includes('DOMAIN-SUFFIX,sentry.io,REJECT'));
-  // Event intake REJECT must win over canonical Anthropic entries and the generic AI rules.
   const telemetryHosts = [
     'api.segment.io',
     'cdn.usefathom.com',
@@ -243,20 +268,19 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.ok(dataDogAt < 0 || at < dataDogAt, file + ': Datadog suffix shadows telemetry');
     assert.ok(aiFathomAt < 0 || at < aiFathomAt, file + ': Fathom AI shadows telemetry');
     assert.ok(!cfg.rules.includes('DOMAIN-SUFFIX,' + host + ',REJECT'), file + ': telemetry is not exact');
+    // Also verify @ads telemetry hosts are not simultaneously routed to Claude固定出口.
+    assert.ok(!cfg.rules.includes('DOMAIN,' + host + ',Claude固定出口'), file + ': telemetry leaked to Claude ' + host);
   }
   assert.ok(!cfg.rules.includes('DOMAIN,browser-intake-us5-datadoghq.com,Claude固定出口'));
+  assert.ok(!cfg.rules.includes('DOMAIN,o1158394.ingest.us.sentry.io,Claude固定出口'));
   for (const broad of ['segment.io', 'segment.com', 'usefathom.com', 'datadoghq.com']) {
     assert.ok(!BLOCK.includes('DOMAIN-SUFFIX,' + broad + ',REJECT'), file + ': overbroad telemetry block ' + broad);
   }
-  // javdb.com (and subdomains) must use Claude before generic routes without being in the telemetry block.
   const javdb = 'DOMAIN-SUFFIX,javdb.com,Claude固定出口';
   const javdbAt = cfg.rules.indexOf(javdb);
   assert.equal(cfg.rules.filter((rule) => rule === javdb).length, 1, file + ': missing or duplicate javdb route');
   assert.ok(genericAiAt < 0 || javdbAt < genericAiAt, file + ': javdb must precede AI');
   assert.ok(!BLOCK.some((rule) => rule.includes(',javdb.com,REJECT')));
-  // Test the published result, not just the injection source: only inbound
-  // Anthropic IPv4 ranges are destination routes. Outbound ranges are for
-  // Anthropic-initiated traffic and should not widen client-side routing.
   const inboundIpv4 = [
     'IP-CIDR,160.79.104.0/23,Claude固定出口,no-resolve',
     'IP-CIDR,153.61.224.0/22,Claude固定出口,no-resolve',
@@ -274,7 +298,6 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
       file + ': outbound Anthropic source IP wrongly used as destination route ' + outbound,
     );
   }
-  // Shared third-party domains must not be globally hijacked.
   const aiAt = cfg.rules.indexOf('RULE-SET,ai,AI');
   for (const rule of ['DOMAIN,anthropic-com.ghost.io,Claude固定出口', 'PROCESS-NAME,claude.exe,Claude固定出口']) {
     const at = cfg.rules.indexOf(rule);
@@ -338,7 +361,7 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   assert.deepEqual(Array.from(noTwGroup.proxies), ['REJECT'], file + ': missing Taiwan must reject');
   assert.ok(!noTw['proxy-groups'].some((x) => x.type === 'fallback' || x.name.endsWith('-故障转移')));
 
-  const upstream = originalUpstreamScript(source);
+  const upstream = hardenUpstreamSource(originalUpstreamScript(source));
   const runner = (name) => vm.runInNewContext(patch(upstream, name, generatedRules) + '\nmain', {}, { timeout: 5000 });
   for (const name of ['🇹🇼 台湾 01', '🇹🇼 台湾 $& 01', '🇭🇰 香港 01']) {
     const config = structuredClone(sample);
@@ -362,3 +385,22 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
   }
   console.log('PASS ' + file);
 }
+
+// Async unit tests for sync-upstream get() HTTP 4xx fail-fast & non-HTTPS rejection
+(async () => {
+  await assert.rejects(() => get('http://example.com/file.js'), /Refusing non-HTTPS URL/);
+  let calls404 = 0;
+  await assert.rejects(
+    () =>
+      get('https://example.com/missing.js', async () => {
+        calls404 += 1;
+        return { ok: false, status: 404, text: async () => '' };
+      }),
+    /HTTP 404/,
+  );
+  assert.equal(calls404, 1, 'HTTP 404 client error must fail fast without retrying');
+  console.log('PASS sync-upstream HTTP guardrails');
+})().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});

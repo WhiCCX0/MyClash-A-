@@ -1,4 +1,4 @@
 {
   "in_users": ["gemini-01", "aistudio-01"],
-  "process_path_regex": "\\\\(gemini-web2api-go|aistudio2api)\\.exe$"
+  "process_path_regex": "(?i)[\\\\/](gemini-web2api-go|aistudio2api)(\\.exe)?$"
 }

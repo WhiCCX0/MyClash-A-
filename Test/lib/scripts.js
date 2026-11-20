@@ -11,7 +11,7 @@ const SCRIPTS = [
     label: '精简版 Script.js',
     meta: {
       full: false,
-      regions: ['香港', '日本', '美国', '新加坡'],
+      regions: ['香港', '日本', '美国', '新加坡', '台湾'],
     },
   },
   {

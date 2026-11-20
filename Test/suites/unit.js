@@ -252,6 +252,42 @@ function runUnitTests(h, api, meta) {
     ),
   );
 
+  h.test('双层公共后缀（.co.uk / .com.cn / .com.tw）3 段独立域名绝不合并为整国后缀，4 段同主域才合并', () => {
+    h.assertDeep(
+      api.simplifyDomainPolicy({
+        'node1.co.uk': 'https://dns.example/dns-query',
+        'node2.co.uk': 'https://dns.example/dns-query',
+        'hk1.com.cn': 'https://dns.example/dns-query',
+        'hk2.com.cn': 'https://dns.example/dns-query',
+      }),
+      {
+        'node1.co.uk': 'https://dns.example/dns-query',
+        'node2.co.uk': 'https://dns.example/dns-query',
+        'hk1.com.cn': 'https://dns.example/dns-query',
+        'hk2.com.cn': 'https://dns.example/dns-query',
+      },
+    );
+    h.assertDeep(
+      api.simplifyDomainPolicy({
+        'n1.airport.co.uk': 'https://dns.example/dns-query',
+        'n2.airport.co.uk': 'https://dns.example/dns-query',
+      }),
+      { '+.airport.co.uk': 'https://dns.example/dns-query' },
+    );
+  });
+  h.test('尾随点 FQDN 域名不会把单级域名误判为三段子域', () =>
+    h.assertDeep(
+      api.simplifyDomainPolicy({
+        'example.com.': 'https://dns.example/dns-query',
+        'other.com.': 'https://dns.example/dns-query',
+      }),
+      {
+        'example.com.': 'https://dns.example/dns-query',
+        'other.com.': 'https://dns.example/dns-query',
+      },
+    ),
+  );
+
   h.section('单元测试 · isIpAddress（IP 地址识别）');
   h.test('IPv4 → true', () => {
     h.assert(api.isIpAddress('1.2.3.4'));
@@ -261,9 +297,19 @@ function runUnitTests(h, api, meta) {
     h.assert(api.isIpAddress('2001:db8::1'));
     h.assert(api.isIpAddress('::1'));
   });
-  h.test('域名 → false', () => {
+  h.test('带方括号 IPv6 字面量 → true', () => {
+    h.assert(api.isIpAddress('[2001:db8::1]'));
+    h.assert(api.isIpAddress('[::1]'));
+  });
+  h.test('越界伪 IPv4（999.999.999.999 / 256.0.0.1）与域名 → false', () => {
+    h.assert(!api.isIpAddress('999.999.999.999'));
+    h.assert(!api.isIpAddress('256.0.0.1'));
     h.assert(!api.isIpAddress('example.com'));
     h.assert(!api.isIpAddress('hk1.example.com'));
+  });
+  h.test('两版脚本均识别 拉斯维加斯 与 台湾', () => {
+    h.assert(matched('拉斯维加斯 01').includes('美国'), '精简版与全量版均应将拉斯维加斯归入美国');
+    h.assert(matched('台湾 01').includes('台湾'), '精简版与全量版均应识别台湾');
   });
 }
 
