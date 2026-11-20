@@ -6,11 +6,9 @@ function compileRe2ForJs(regex) {
     throw Error('Invalid Gemini process_path_regex');
   }
   // Reject constructs invalid in Go RE2 (lookarounds, backrefs, JS-only (?<name>...) and \u{...}).
-  if (
-    /\(\?(?:=|!|<=|<!|<[A-Za-z_])/.test(regex) ||
-    /\\[1-9]/.test(regex) ||
-    /\\u\{[0-9a-fA-F]+\}/.test(regex)
-  ) {
+  const hasUnsupportedGroup = /\(\?(?:=|!|<=|<!|<[A-Za-z_])/.test(regex);
+  const hasBackrefOrCodePoint = /\\[1-9]/.test(regex) || /\\u\{[0-9a-fA-F]+\}/.test(regex);
+  if (hasUnsupportedGroup || hasBackrefOrCodePoint) {
     throw Error('Unsupported RE2 process_path_regex construct');
   }
   // Guard against nested quantifiers (e.g. (a+)+, ([a-z]*)+) to prevent ReDoS in JS RegExp evaluation.
@@ -28,18 +26,19 @@ function compileRe2ForJs(regex) {
       if (ch === '-') {
         negating = true;
       } else if (ch === 'i' || ch === 'm' || ch === 's') {
-        if (negating) active.delete(ch);
-        else active.add(ch);
+        if (negating) {
+          active.delete(ch);
+        } else {
+          active.add(ch);
+        }
       }
     }
     flags = [...active].join('');
     body = body.slice(leading[0].length);
   }
   // Translate RE2 (?P<name>...) and \A / \z anchors for JS RegExp syntax verification.
-  const jsBody = body
-    .replace(/\(\?P<([A-Za-z_][A-Za-z0-9_]*)>/g, '(?<$1>')
-    .replace(/\\A/g, '^')
-    .replace(/\\z/g, '$');
+  const jsNamed = body.replace(/\(\?P<([A-Za-z_][A-Za-z0-9_]*)>/g, '(?<$1>');
+  const jsBody = jsNamed.replace(/\\A/g, '^').replace(/\\z/g, '$');
   try {
     return new RegExp(jsBody, flags);
   } catch (e) {
@@ -78,7 +77,6 @@ function parseGeminiConfig(obj) {
   return { in_users: [...obj.in_users], process_path_regex: regex };
 }
 
-// Runtime: refs to upstream MyClash internals are intentional and guarded.
 function addGeminiRoute(config, cfg) {
   if (
     typeof selectBaseOption === 'undefined' ||
@@ -159,26 +157,29 @@ function addGeminiRoute(config, cfg) {
 
 function patchGemini(source, cfg) {
   const parsed = parseGeminiConfig(cfg);
-  if (typeof source !== 'string') throw Error('Expected generated Claude source');
-  const ends = source.match(/\/\/ END MyClash-A- Claude routing/g) || [];
-  if (ends.length !== 1) throw Error('Expected exactly one Claude END marker');
-  if (source.includes('BEGIN MyClash-A- Gemini routing')) {
-    throw Error('Already injected Gemini routing');
+  if (
+    typeof source !== 'string' ||
+    source.includes('BEGIN MyClash-A- Gemini routing') ||
+    !source.includes('// END MyClash-A- Claude routing') ||
+    !source.includes('selectBaseOption') ||
+    !source.includes('iconBaseUrl') ||
+    !source.includes('const ROUTE')
+  ) {
+    throw Error('Gemini patch requires Claude-patched MyClash source');
   }
-  const returns = source.match(/^  return newConfig;[ \t]*$/gm) || [];
-  if (returns.length !== 1) throw Error('Expected one upstream return newConfig');
-  const expected = /^  \/\/ END MyClash-A- Claude routing[ \t]*\r?\n(?=  return newConfig;[ \t]*$)/m;
-  if (!expected.test(source)) throw Error('Unexpected Claude injection boundary');
+  const markers = source.match(/ {2}\/\/ END MyClash-A- Claude routing\r?\n/g) || [];
+  if (markers.length !== 1) throw Error('Expected single Claude routing end marker');
   const added = source.replace(
-    expected,
-    (match) =>
-      match +
+    / {2}\/\/ END MyClash-A- Claude routing\r?\n/,
+    (m) =>
+      m +
       '  // BEGIN MyClash-A- Gemini routing (generated)\n' +
       '  addGeminiRoute(newConfig, GEMINI_CONFIG);\n' +
       '  // END MyClash-A- Gemini routing\n',
   );
-  const usersLiteral = '[' + parsed.in_users.map((u) => "'" + u + "'").join(', ') + ']';
-  const regexLiteral = "'" + parsed.process_path_regex.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  const quoteSingle = (val) => "'" + val.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  const usersLiteral = '[' + parsed.in_users.map(quoteSingle).join(', ') + ']';
+  const regexLiteral = quoteSingle(parsed.process_path_regex);
   return (
     added +
     '\n// Gemini Web P0 add-on (generated)\n' +

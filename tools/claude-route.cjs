@@ -1,6 +1,7 @@
 'use strict';
-// Maintained Claude domains: v2fly/domain-list-community data/anthropic.
+
 const PROVIDER = 'myclash_claude_anthropic';
+
 function parseAnthropicSource(source) {
   if (typeof source !== 'string' || !source.trim()) throw Error('Empty Anthropic source');
   const entries = new Set();
@@ -8,14 +9,9 @@ function parseAnthropicSource(source) {
     const uncommented = raw.replace(/\s+#.*$/, () => '').trim();
     if (!uncommented || uncommented.startsWith('#')) continue;
     const attrMatch = uncommented.match(/(?:\s+@!?[a-z0-9._-]+)+\s*$/i);
-    const attrs = attrMatch
-      ? attrMatch[0]
-          .trim()
-          .split(/\s+/)
-          .map((token) => token.toLowerCase())
-      : [];
-    // Skip entries tagged @ads (telemetry/advertising) so they are not routed to Claude固定出口.
-    if (attrs.includes('@ads')) continue;
+    const attrs = attrMatch ? attrMatch[0].trim().split(/\s+/) : [];
+    // Skip entries tagged @ads so advertising rules are not routed to Claude固定出口.
+    if (attrs.some((token) => token.toLowerCase() === '@ads')) continue;
     const line = (attrMatch ? uncommented.slice(0, attrMatch.index) : uncommented).trim();
     if (!line) continue;
     let kind = 'DOMAIN-SUFFIX',
@@ -28,10 +24,12 @@ function parseAnthropicSource(source) {
     } else if (line.startsWith('keyword:')) {
       kind = 'DOMAIN-KEYWORD';
       domain = line.slice(8);
-    } else if (line.startsWith('regexp:') || line.startsWith('include:') || line.includes('@') || line.includes(' ')) {
-      throw Error('Unsupported Anthropic domain directive: ' + line);
+    } else if (line.includes(':')) {
+      throw Error('Unsupported Anthropic directive: ' + line);
     }
+    domain = domain.trim().toLowerCase();
     if (
+      !domain ||
       !/^[a-z0-9.-]+$/i.test(domain) ||
       domain.startsWith('.') ||
       domain.endsWith('.') ||
@@ -40,16 +38,16 @@ function parseAnthropicSource(source) {
     ) {
       throw Error('Invalid Anthropic domain: ' + line);
     }
-    entries.add(kind + ',' + domain.toLowerCase() + ',Claude固定出口');
+    entries.add(kind + ',' + domain + ',Claude固定出口');
   }
-  for (const d of ['anthropic.com', 'claude.ai', 'claude.com', 'clau.de']) {
-    if (!entries.has('DOMAIN-SUFFIX,' + d + ',Claude固定出口')) throw Error('Missing critical Anthropic domain: ' + d);
+  for (const d of ['anthropic.com', 'claude.ai', 'claude.com']) {
+    if (!entries.has('DOMAIN-SUFFIX,' + d + ',Claude固定出口')) {
+      throw Error('Missing critical Anthropic domain: ' + d);
+    }
   }
-  if (entries.size < 15) throw Error('Unexpectedly short Anthropic domain list');
   return [...entries].sort();
 }
 
-// Fork-maintained global REJECT rules. DOMAIN-SUFFIX also matches all subdomains.
 const BLOCK = [
   'DOMAIN-SUFFIX,sentry.io,REJECT',
   'DOMAIN-SUFFIX,datadoghq.eu,REJECT',
@@ -66,12 +64,13 @@ const BLOCK = [
   'DOMAIN-SUFFIX,mcdn.bilivideo.com,REJECT',
   'DOMAIN-SUFFIX,szbdyd.com,REJECT',
   'DOMAIN-SUFFIX,mountaintoys.cn,REJECT',
-  // Douyin candidates: xycdn.com is listed in PCDN blocklists, but may also serve normal media.
-  // The flive hostname is an exact live-pull endpoint; intentionally avoid blocking all douyincdn.com.
+  // Targeted Douyin candidates only; do not block general Douyin CDNs or Douyu.
   'DOMAIN-SUFFIX,xycdn.com,REJECT',
   'DOMAIN,pull-hs-f5-hot.flive.douyincdn.com,REJECT',
 ];
+
 const ROUTE = [
+  // Explicit safety belt in addition to the canonical Anthropic domain source and MRS rule-set.
   'DOMAIN-SUFFIX,anthropic.com,Claude固定出口',
   'DOMAIN-SUFFIX,claude.ai,Claude固定出口',
   'DOMAIN-SUFFIX,claude.com,Claude固定出口',
@@ -100,9 +99,9 @@ const ROUTE = [
   'IP-CIDR6,2607:6bc0::/48,Claude固定出口,no-resolve',
   'IP-CIDR6,2607:6bc0:11::/48,Claude固定出口,no-resolve',
   'IP-ASN,399358,Claude固定出口,no-resolve',
-  // Windows native Claude Code catch-all. Applies only if Mihomo identifies the process.
   'PROCESS-NAME,claude.exe,Claude固定出口',
 ];
+
 function addClaudeRoute(config, pinnedNode, anthropicRules) {
   if (
     !Array.isArray(anthropicRules) ||
@@ -133,20 +132,27 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
 
   const groupName = 'Claude固定出口';
   const groups = config['proxy-groups'];
-  const groupNames = new Set(groups.filter((g) => g && typeof g.name === 'string').map((g) => g.name));
+  const groupNames = new Set();
+  for (const g of groups) {
+    if (g && typeof g.name === 'string') {
+      groupNames.add(g.name);
+    }
+  }
   const excludedTypes = new Set(['direct', 'reject', 'reject-drop', 'pass', 'compatible']);
-  const names = new Set(
-    config.proxies
-      .filter((p) => p && typeof p.name === 'string' && !excludedTypes.has(String(p.type).toLowerCase()))
-      .map((p) => p.name),
-  );
+  const names = new Set();
+  for (const p of config.proxies) {
+    if (p && typeof p.name === 'string' && !excludedTypes.has(String(p.type).toLowerCase())) {
+      names.add(p.name);
+    }
+  }
   if (groupNames.has(groupName) || names.has(groupName)) throw Error('Claude group name collision');
 
   // Match the Taiwanese region using upstream's own classification rules.
   // Unlike a name-only filter, this is consistent with normalized custom proxies.
   const taiwanNodes = [...names].filter((name) => getMatchedRegions(name).some((region) => region.name === '台湾'));
   const taiwanSet = new Set(taiwanNodes);
-  const taiwanGroups = ['台湾', '台湾-自动选择'].filter((name) => groupNames.has(name) && taiwanNodes.length > 0);
+  const candidateTaiwanGroups = ['台湾', '台湾-自动选择'];
+  const taiwanGroups = candidateTaiwanGroups.filter((name) => groupNames.has(name) && taiwanNodes.length > 0);
   const available = Boolean(pinnedNode && taiwanSet.has(pinnedNode));
   const choices = pinnedNode
     ? available
@@ -155,7 +161,8 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
     : ['REJECT', ...taiwanNodes, ...taiwanGroups];
   const defaultIndex = groups.findIndex((g) => g && g.name === '默认代理');
   const insertAt = defaultIndex < 0 ? 0 : defaultIndex + 1;
-  const baseSelect = typeof selectBaseOption === 'object' && selectBaseOption ? selectBaseOption : { type: 'select' };
+  const hasBaseSelect = typeof selectBaseOption === 'object' && selectBaseOption !== null;
+  const baseSelect = hasBaseSelect ? selectBaseOption : { type: 'select' };
   groups.splice(insertAt, 0, {
     ...baseSelect,
     name: groupName,
@@ -166,23 +173,24 @@ function addClaudeRoute(config, pinnedNode, anthropicRules) {
   const global = groups.find((g) => g && g.name === 'GLOBAL');
   if (global && Array.isArray(global.proxies) && !global.proxies.includes(groupName)) global.proxies.push(groupName);
   // Deduplicate identical rules while preserving first-seen priority order.
-  config['rules'] = [
-    ...new Set([
-      ...BLOCK,
-      ...anthropicRules,
-      'RULE-SET,' + PROVIDER + ',Claude固定出口',
-      ...ROUTE,
-      ...config['rules'],
-    ]),
+  const mergedRules = [
+    ...BLOCK,
+    ...anthropicRules,
+    'RULE-SET,' + PROVIDER + ',Claude固定出口',
+    ...ROUTE,
+    ...config['rules'],
   ];
+  config['rules'] = [...new Set(mergedRules)];
 }
+
 function patch(source, pinnedNode = '', anthropicRules) {
   if (!Array.isArray(anthropicRules) || anthropicRules.length < 15) throw Error('Missing Anthropic domains');
+  const reservedNodes = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL', '直连'];
   if (
     typeof pinnedNode !== 'string' ||
     pinnedNode.length > 256 ||
     /[\r\n]/.test(pinnedNode) ||
-    ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL', '直连'].includes(pinnedNode.trim().toUpperCase())
+    reservedNodes.includes(pinnedNode.trim().toUpperCase())
   )
     throw Error('Invalid pinned node name');
   if (
@@ -191,30 +199,27 @@ function patch(source, pinnedNode = '', anthropicRules) {
     !source.includes("newConfig['proxy-groups']") ||
     !source.includes("newConfig['rules']")
   )
-    throw Error('Unexpected upstream source');
-  if (
-    (source.match(/function main\s*\(\s*config\s*\)/g) || []).length !== 1 ||
-    (source.match(/^  return newConfig;[ \t]*$/gm) || []).length !== 1
-  )
-    throw Error('Upstream main changed, keeping last working build');
+    throw Error('Unexpected MyClash upstream layout');
+  const matches = source.match(/ {2}return newConfig;/g) || [];
+  if (matches.length !== 1) throw Error('Expected single return newConfig');
+  const quoteSingle = (val) => "'" + val.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+  const fmtArr = (arr) => '[\n' + arr.map((item) => '  ' + quoteSingle(item) + ',').join('\n') + '\n]';
   const result = source.replace(
-    /^  return newConfig;[ \t]*$/m,
+    / {2}return newConfig;/,
     () =>
       '  // BEGIN MyClash-A- Claude routing (generated)\n' +
       '  addClaudeRoute(newConfig, ' +
-      JSON.stringify(pinnedNode) +
+      quoteSingle(pinnedNode) +
       ', ANTHROPIC_RULES);\n' +
       '  // END MyClash-A- Claude routing\n' +
       '  return newConfig;',
   );
-  const fmtArr = (arr) =>
-    '[\n' + arr.map((s) => "  '" + s.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "',").join('\n') + '\n]';
   return (
     result +
     '\n// Shared add-on: upstream MyClash code is otherwise unchanged.\n' +
-    "const PROVIDER = '" +
-    PROVIDER +
-    "';\n" +
+    'const PROVIDER = ' +
+    quoteSingle(PROVIDER) +
+    ';\n' +
     'const ANTHROPIC_RULES = ' +
     fmtArr(anthropicRules) +
     ';\n' +
@@ -228,4 +233,5 @@ function patch(source, pinnedNode = '', anthropicRules) {
     '\n'
   );
 }
-module.exports = { patch, parseAnthropicSource, BLOCK, ROUTE };
+
+module.exports = { patch, parseAnthropicSource, addClaudeRoute, PROVIDER, BLOCK, ROUTE };

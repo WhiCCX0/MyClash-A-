@@ -82,7 +82,7 @@ const bad = {
   duplicate: { in_users: ['a', 'a'], process_path_regex: '' },
   slash: { in_users: ['a/b'], process_path_regex: '' },
   'comma in user': { in_users: ['a,b'], process_path_regex: '' },
-  'space': { in_users: ['a b'], process_path_regex: '' },
+  space: { in_users: ['a b'], process_path_regex: '' },
   'regex comma': { in_users: ['a'], process_path_regex: 'a,b' },
   'regex newline': { in_users: ['a'], process_path_regex: 'a\nb' },
   'regex invalid': { in_users: ['a'], process_path_regex: '[bad' },
@@ -92,10 +92,10 @@ const bad = {
   'RE2 positive lookbehind': { in_users: ['a'], process_path_regex: '(?<=foo)bar' },
   'RE2 negative lookbehind': { in_users: ['a'], process_path_regex: '(?<!foo)bar' },
   'RE2 backreference': { in_users: ['a'], process_path_regex: String.raw`\1` },
-  'JS-only named group (?<name>...)': { in_users: ['a'], process_path_regex: '(?<bin>gemini)\.exe$' },
+  'JS-only named group (?<name>...)': { in_users: ['a'], process_path_regex: '(?<bin>gemini)\\.exe$' },
   'JS-only unicode codepoint escape': { in_users: ['a'], process_path_regex: String.raw`\u{61}` },
   'ReDoS nested quantifier (a+)+': { in_users: ['a'], process_path_regex: '(a+)+$' },
-  'ReDoS nested quantifier ([a-z]*)+': { in_users: ['a'], process_path_regex: '([a-z]*)+\.exe$' },
+  'ReDoS nested quantifier ([a-z]*)+': { in_users: ['a'], process_path_regex: '([a-z]*)+\\.exe$' },
   'not object': null,
 };
 for (const value of [
@@ -233,7 +233,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
       assert.deepEqual(current[key], base[key], key);
   });
   check(file + '/only US edge (including Las Vegas parity)', () => {
-    const g = api.main({ proxies: [node('🇺🇸 US 01', 1), node('拉斯维加斯 02', 2)], dns: {} })['proxy-groups'];
+    const usInput = { proxies: [node('🇺🇸 US 01', 1), node('拉斯维加斯 02', 2)], dns: {} };
+    const g = api.main(usInput)['proxy-groups'];
     assert.deepEqual(plain(g.find((x) => x.name === 'Gemini Web').proxies), ['默认代理', '手动选择', '美国']);
     assert.ok(!g.some((x) => x.name === '其他节点'), '拉斯维加斯 should match 美国 in both Lite and Full');
   });
@@ -258,6 +259,8 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.deepEqual(plain(disabled.find((g) => g.name === 'Gemini Web').proxies), expected);
   });
   check(file + '/minimal mode only default', () => {
+    // MyClash upstream renamed 极简模式 to 极简国内外分流模式.
+    // Accept either spelling, but require exactly one disabled setting to toggle.
     const minimalSetting = /(?:极简国内外分流模式|极简模式):\s*false\b/g;
     const matches = source.match(minimalSetting) || [];
     assert.equal(matches.length, 1, 'Expected exactly one disabled upstream minimal-mode setting');

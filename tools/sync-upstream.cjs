@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const { patch, parseAnthropicSource } = require('./claude-route.cjs');
 const { parseGeminiConfig, patchGemini } = require('./gemini-route.cjs');
 const files = ['Script/mihomoScript.js', 'Script/Script.js'];
+const RESERVED_NODE_NAMES = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL', '直连'];
 
 function parseClaudeConfig(obj) {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
@@ -13,11 +14,8 @@ function parseClaudeConfig(obj) {
     throw Error('Claude config must contain only string node_name');
   }
   const trimmed = obj.node_name.trim();
-  if (
-    trimmed.length > 256 ||
-    /[\r\n]/.test(obj.node_name) ||
-    ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', 'COMPATIBLE', 'GLOBAL', '直连'].includes(trimmed.toUpperCase())
-  ) {
+  const isReserved = RESERVED_NODE_NAMES.includes(trimmed.toUpperCase());
+  if (trimmed.length > 256 || /[\r\n]/.test(obj.node_name) || isReserved) {
     throw Error('Invalid Claude node_name');
   }
   return { node_name: obj.node_name };
@@ -57,10 +55,9 @@ function hardenUpstreamSource(source) {
   let out = source;
 
   // 1. Align Lite US region regex with Full script so '拉斯维加斯' nodes do not fall into 其他节点.
-  out = out.replace(
-    '华盛顿|圣何塞|(?<![A-Za-z])USA?',
-    () => '华盛顿|拉斯维加斯|圣何塞|(?<![A-Za-z])USA?',
-  );
+  const oldUs = '华盛顿|圣何塞|(?<![A-Za-z])USA?';
+  const newUs = '华盛顿|拉斯维加斯|圣何塞|(?<![A-Za-z])USA?';
+  out = out.replace(oldUs, () => newUs);
 
   // 2. Tighten isIpAddress to validate 0-255 IPv4 octets and bracketed IPv6 literals.
   const oldIsIp = [
@@ -164,18 +161,14 @@ async function main() {
   console.log('Anthropic canonical rules: ' + anthropicRules.length);
 
   // Fetch and build both upstream scripts concurrently.
-  const builtEntries = await Promise.all(
-    files.map(async (file) => {
-      const rawSource = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
-      const hardened = hardenUpstreamSource(rawSource);
-      const built = applyForkHeader(
-        patchGemini(patch(hardened, cfg.node_name, anthropicRules), geminiCfg),
-        file,
-        meta.sha,
-      );
-      return [file, built];
-    }),
-  );
+  const buildTasks = files.map(async (file) => {
+    const rawSource = await get('https://raw.githubusercontent.com/AIsouler/MyClash/' + meta.sha + '/' + file);
+    const hardened = hardenUpstreamSource(rawSource);
+    const patched = patchGemini(patch(hardened, cfg.node_name, anthropicRules), geminiCfg);
+    const built = applyForkHeader(patched, file, meta.sha);
+    return [file, built];
+  });
+  const builtEntries = await Promise.all(buildTasks);
 
   for (const [file, content] of builtEntries) {
     fs.writeFileSync(file, content);
