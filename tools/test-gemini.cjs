@@ -112,8 +112,13 @@ for (const value of [
 for (const [label, cfg] of Object.entries(bad))
   check('parse/reject ' + label, () => assert.throws(() => parseGeminiConfig(cfg)));
 for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
-  const source = fs.readFileSync(file, 'utf8'),
-    original = claudeOnly(source);
+  const trackedSource = fs.readFileSync(file, 'utf8');
+  const original = claudeOnly(trackedSource);
+  // PR formatting checks use the tracked scripts; the sync job regenerates them.
+  // Exercise the proposed generator on the same upstream baseline when needed.
+  const source = trackedSource.includes('  addHy2Group(newConfig);')
+    ? trackedSource
+    : patchGemini(original, routeConfig);
   const api = load(source),
     oldApi = load(original),
     cfg = api.main(structuredClone(sample)),
@@ -300,6 +305,59 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
       plain(runtime['proxy-groups'].find((g) => g.name === 'Gemini Web').proxies),
       plain(gemini.proxies),
     );
+  });
+  check(file + '/HY2 filters by protocol and four allowed regions', () => {
+    const hy2Input = {
+      proxies: [
+        node('🇺🇸 US HY2 01', 1, 'hysteria2'),
+        node('🇸🇬 SG HY2 01', 2, 'hysteria2'),
+        node('🇹🇼 TW HY2 01', 3, 'hysteria2'),
+        node('🇰🇷 KR HY2 01', 4, 'hysteria2'),
+        node('韩国 首尔 HY2 02', 5, 'hysteria2'),
+        node('🇭🇰 HK HY2 01', 6, 'hysteria2'),
+        node('🇯🇵 JP HY2 01', 7, 'hysteria2'),
+        node('Mystery HY2 01', 8, 'hysteria2'),
+        node('🇺🇸 US SS 01', 9, 'ss'),
+        node('🇰🇷 KR VMess 01', 10, 'vmess'),
+      ],
+      dns: {},
+    };
+    const result = api.main(hy2Input);
+    const group = result['proxy-groups'].find((x) => x.name === 'HY2优选');
+    const auto = result['proxy-groups'].find((x) => x.name === 'HY2-自动选择');
+    const wanted = ['🇺🇸 US HY2 01', '🇸🇬 SG HY2 01', '🇹🇼 TW HY2 01', '🇰🇷 KR HY2 01', '韩国 首尔 HY2 02'];
+    assert.ok(group && auto);
+    assert.equal(group.type, 'select');
+    assert.equal(group['default-selected'], 'HY2-自动选择');
+    assert.deepEqual(plain(group.proxies), [...wanted, 'HY2-自动选择']);
+    assert.equal(auto.type, 'url-test');
+    assert.equal(auto.hidden, true);
+    assert.equal(auto.interval, 600);
+    assert.equal(auto.tolerance, 50);
+    assert.equal(auto.lazy, true);
+    assert.deepEqual(plain(auto.proxies), wanted);
+    const defaultGroup = result['proxy-groups'].find((x) => x.name === '默认代理');
+    const globalGroup = result['proxy-groups'].find((x) => x.name === 'GLOBAL');
+    assert.equal(defaultGroup.proxies.filter((name) => name === 'HY2优选').length, 1);
+    assert.equal(globalGroup.proxies.filter((name) => name === 'HY2优选').length, 1);
+    assert.ok(!defaultGroup.proxies.includes('HY2-自动选择'));
+    assert.ok(!result.rules.some((rule) => rule.endsWith(',HY2优选')), 'HY2 must not rewrite domain routing rules');
+  });
+  check(file + '/no eligible HY2 nodes means no empty groups', () => {
+    assert.ok(!groups.some((x) => x.name === 'HY2优选' || x.name === 'HY2-自动选择'));
+    assert.ok(!byName.get('默认代理').proxies.includes('HY2优选'));
+  });
+  check(file + '/HY2 is available even in minimal mode', () => {
+    const minimal = /(?:极简国内外分流模式|极简模式):\s*false\b/g;
+    assert.equal((source.match(minimal) || []).length, 1);
+    const minimalSource = source.replace(minimal, (value) => value.replace(/false\b/, 'true'));
+    const cfg = load(minimalSource).main({
+      proxies: [node('🇰🇷 KR 01', 1, 'hysteria2'), node('🇭🇰 HK 01', 2, 'hysteria2')],
+      dns: {},
+    });
+    const selected = cfg['proxy-groups'].find((x) => x.name === 'HY2优选');
+    assert.deepEqual(plain(selected.proxies), ['🇰🇷 KR 01', 'HY2-自动选择']);
+    assert.ok(cfg['proxy-groups'].find((x) => x.name === '默认代理').proxies.includes('HY2优选'));
   });
   check(file + '/patch rejects duplicate or missing Claude', () => {
     assert.throws(() => patchGemini(source, { in_users: ['gemini-01'], process_path_regex: '' }));
