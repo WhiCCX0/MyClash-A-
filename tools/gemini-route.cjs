@@ -1,5 +1,7 @@
 'use strict';
 
+const { addHy2Group } = require('./hy2-group.cjs');
+
 // Validate a Mihomo (Go RE2) regex and compile an equivalent JS RegExp for testing.
 function compileRe2ForJs(regex) {
   if (typeof regex !== 'string' || regex.length > 256 || /[,\r\n]/.test(regex)) {
@@ -175,6 +177,7 @@ function patchGemini(source, cfg) {
       m +
       '  // BEGIN MyClash-A- Gemini routing (generated)\n' +
       '  addGeminiRoute(newConfig, GEMINI_CONFIG);\n' +
+      '  addHy2Group(newConfig);\n' +
       '  // END MyClash-A- Gemini routing\n',
   );
   const quoteSingle = (val) => "'" + val.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
@@ -191,6 +194,8 @@ function patchGemini(source, cfg) {
     regexLiteral +
     ',\n};\n\n' +
     addGeminiRoute.toString() +
+    '\n\n' +
+    addHy2Group.toString() +
     '\n'
   );
 }
