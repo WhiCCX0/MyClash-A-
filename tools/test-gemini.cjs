@@ -112,8 +112,13 @@ for (const value of [
 for (const [label, cfg] of Object.entries(bad))
   check('parse/reject ' + label, () => assert.throws(() => parseGeminiConfig(cfg)));
 for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
-  const source = fs.readFileSync(file, 'utf8'),
-    original = claudeOnly(source);
+  const trackedSource = fs.readFileSync(file, 'utf8');
+  const original = claudeOnly(trackedSource);
+  // PR formatting checks use the tracked scripts; the sync job regenerates them.
+  // Exercise the proposed generator on the same upstream baseline when needed.
+  const source = trackedSource.includes('  addHy2Group(newConfig);')
+    ? trackedSource
+    : patchGemini(original, routeConfig);
   const api = load(source),
     oldApi = load(original),
     cfg = api.main(structuredClone(sample)),
