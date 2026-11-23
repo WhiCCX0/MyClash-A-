@@ -343,9 +343,9 @@ for (const file of ['Script/mihomoScript.js', 'Script/Script.js']) {
     assert.ok(!byName.get('默认代理').proxies.includes('HY2优选'));
   });
   check(file + '/HY2 is available even in minimal mode', () => {
-    const minimal = /(?:极简国内外分流模式|极简模式):\\s*false\\b/g;
+    const minimal = /(?:极简国内外分流模式|极简模式):\s*false\b/g;
     assert.equal((source.match(minimal) || []).length, 1);
-    const minimalSource = source.replace(minimal, (value) => value.replace(/false\\b/, 'true'));
+    const minimalSource = source.replace(minimal, (value) => value.replace(/false\b/, 'true'));
     const cfg = load(minimalSource).main({
       proxies: [node('🇰🇷 KR 01', 1, 'hysteria2'), node('🇭🇰 HK 01', 2, 'hysteria2')],
       dns: {},
