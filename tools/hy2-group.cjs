@@ -54,12 +54,7 @@ function addHy2Group(config) {
   const groups = config['proxy-groups'];
   const defaultGroup = groups.find((group) => group && group.name === '默认代理');
   const globalGroup = groups.find((group) => group && group.name === 'GLOBAL');
-  if (
-    !defaultGroup ||
-    !Array.isArray(defaultGroup.proxies) ||
-    !globalGroup ||
-    !Array.isArray(globalGroup.proxies)
-  ) {
+  if (!defaultGroup || !Array.isArray(defaultGroup.proxies) || !globalGroup || !Array.isArray(globalGroup.proxies)) {
     throw Error('HY2 group requires existing 默认代理 and GLOBAL groups');
   }
   const reserved = new Set([selectName, autoName]);
