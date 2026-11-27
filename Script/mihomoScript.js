@@ -5,7 +5,7 @@
  * 本仓库：https://github.com/WhiCCX0/MyClash-A-
  * 脚本链接：https://raw.githubusercontent.com/WhiCCX0/MyClash-A-/main/Script/mihomoScript.js
  * 附加功能：Claude 固定出口、Gemini Web / AI Studio 独立分流（构建时自动注入）
- * 构建基于上游提交：e567486da9ce565c58ddb406f87ac0f62b6fc296
+ * 构建基于上游提交：5d3072d854c48c0184f3507bae0ad600f22a9163
  * 友情推荐，非常好用、省电且内存占用低的代理软件：https://github.com/appshubcc/Bettbox
  */
 
@@ -69,10 +69,12 @@ const ruleOptionsEnable = {
 const prefixRules = [
   // 私有网络直连
   'RULE-SET,private,直连',
+  'RULE-SET,private_ip,直连,no-resolve',
 
   // 国内直连
   'RULE-SET,geolocation-cn,直连',
   'RULE-SET,games_cn,直连', // 已包含 steam 下载域名
+  'RULE-SET,games_download_cn,直连',
   'RULE-SET,synology,直连',
   'RULE-SET,nvidia_cn,直连',
   'RULE-SET,apple_cn,直连',
@@ -254,6 +256,12 @@ const baseRuleProviders = {
     url: `${ruleSetBaseUrl}geosite/category-games@cn.mrs`,
     path: './ruleset/category-games@cn.mrs',
     'path-in-bundle': 'geo/geosite/category-games@cn.mrs',
+  },
+  games_download_cn: {
+    ...ruleProviderCommonDomain,
+    url: `${ruleSetBaseUrl}geosite/category-game-platforms-download@cn.mrs`,
+    path: './ruleset/category-game-platforms-download@cn.mrs',
+    'path-in-bundle': 'geo/geosite/category-game-platforms-download@cn.mrs',
   },
   synology: {
     ...ruleProviderCommonDomain,
@@ -1911,6 +1919,7 @@ function main(config) {
     'RULE-SET,private_ip,直连',
     ...functionalIpRules,
     `MATCH,${ruleOptionsEnable.极简国内外分流模式 ? '默认代理' : '漏网之鱼'}`,
+    'NETWORK,UDP,REJECT',
   ];
 
   newConfig['mixed-port'] = 7890;
